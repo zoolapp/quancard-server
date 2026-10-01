@@ -32,12 +32,27 @@ export const revision = signal(0);
 export const setupEnabled = signal(false);
 
 let accountKey: CryptoKey | null = null;
+/**
+ * Lock generation. Every lock/sign-out bumps it; async unlock work captured an
+ * older value and must not publish keys or state when it resumes.
+ */
+let generation = 0;
+
+export class SupersededError extends Error {}
+
+function check(gen: number): void {
+  if (gen !== generation) throw new SupersededError();
+}
+
+/** Password re-entry grace for revealing card secrets; revoked on every lock. */
+export const revealGrace = { until: 0 };
 /** SHA-256 of the authKey from the last successful unlock, for local re-verification only. */
 let authCheck: Uint8Array | null = null;
 
 const IDLE_MS = 5 * 60 * 1000;
 const BACKGROUND_MS = 60 * 1000;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
+let backgroundTimer: ReturnType<typeof setTimeout> | undefined;
 let hiddenAt: number | null = null;
 
 async function digest(bytes: Uint8Array): Promise<Uint8Array> {
@@ -68,53 +83,70 @@ export async function deriveFor(password: string, saltB64: string): Promise<Acco
   return deriveAccountSecrets(password, base64.decode(saltB64, 16), argon2id);
 }
 
-async function finishUnlock(view: AccountView, secrets: AccountSecrets): Promise<void> {
+async function finishUnlock(view: AccountView, secrets: AccountSecrets, gen: number): Promise<void> {
   const { key, raw } = await unwrapAccountKey(base64.decode(view.wrappedAccountKey), view.accountID, secrets.kek);
   raw.fill(0);
+  const check2 = await digest(secrets.authKey);
+  secrets.authKey.fill(0);
+  check(gen);
   accountKey = key;
-  authCheck = await digest(secrets.authKey);
+  authCheck = check2;
   account.value = view;
-  await openDefaultVault();
+  await openDefaultVault(gen);
+  check(gen);
   phase.value = "ready";
   armIdleTimer();
 }
 
-export async function openDefaultVault(): Promise<void> {
-  if (!accountKey) throw new ProtocolError("invalidData");
+export async function openDefaultVault(gen = generation): Promise<void> {
+  const owner = accountKey;
+  if (!owner) throw new SupersededError();
   const { vaults } = await api.vaults();
+  check(gen);
   const first = vaults[0];
   vault.value?.close();
   if (!first) {
     vault.value = null;
     return;
   }
-  const material = await unwrapVaultKey(base64.decode(first.wrappedKey), first.vaultID, accountKey);
-  vault.value = await VaultStore.open(first, material);
+  const material = await unwrapVaultKey(base64.decode(first.wrappedKey), first.vaultID, owner);
+  check(gen);
+  const store = await VaultStore.open(first, material);
+  if (gen !== generation) {
+    store.close();
+    throw new SupersededError();
+  }
+  vault.value = store;
   revision.value++;
 }
 
 export async function createVault(imported?: { vaultID: string; key: Uint8Array }): Promise<void> {
   if (!accountKey) throw new ProtocolError("invalidData");
   const material = imported ?? { vaultID: randomUUID(), key: randomBytes(32) };
+  const gen = generation;
   await VaultStore.create(accountKey, material);
-  await openDefaultVault();
+  check(gen);
+  await openDefaultVault(gen);
 }
 
 export async function signIn(username: string, password: string, secondFactor?: { totp?: string; recoveryCode?: string }): Promise<void> {
+  const gen = generation;
   const { kdf } = await api.prelogin(username);
   const secrets = await deriveFor(password, kdf.salt);
   const view = await api.login({ username, authKey: base64.encode(secrets.authKey), ...secondFactor });
-  await finishUnlock(view, secrets);
+  await finishUnlock(view, secrets, gen);
 }
 
 export async function unlock(password: string): Promise<void> {
+  const gen = generation;
   const view = await api.account();
   const secrets = await deriveFor(password, view.kdf.salt);
-  await finishUnlock(view, secrets);
+  await finishUnlock(view, secrets, gen);
 }
 
 /** Registration (owner setup or invite): keys are generated and wrapped in the browser. */
 export async function register(kind: "setup" | "invite", code: string, username: string, password: string): Promise<void> {
+  const gen = generation;
   const salt = randomBytes(16);
   const secrets = await deriveAccountSecrets(password, salt, argon2id);
   const accountID = randomUUID();
@@ -128,7 +160,7 @@ export async function register(kind: "setup" | "invite", code: string, username:
   };
   raw.fill(0);
   const view = kind === "setup" ? await api.setup({ ...fields, setupToken: code }) : await api.register({ ...fields, inviteCode: code });
-  await finishUnlock(view, secrets);
+  await finishUnlock(view, secrets, gen);
 }
 
 /**
@@ -150,6 +182,9 @@ export function currentAccountKey(): CryptoKey {
 }
 
 export function lock(): void {
+  generation++;
+  revealGrace.until = 0;
+  clearTimeout(backgroundTimer);
   vault.value?.close();
   vault.value = null;
   accountKey = null;
@@ -182,7 +217,10 @@ export function installLifecycleGuards(): void {
     if (document.visibilityState === "hidden") {
       hiddenAt = Date.now();
       document.documentElement.dataset.privacy = "on";
+      // Browsers may delay timers in background tabs; the visibility check below backs this up.
+      if (phase.value === "ready") backgroundTimer = setTimeout(lock, BACKGROUND_MS);
     } else {
+      clearTimeout(backgroundTimer);
       if (hiddenAt !== null && Date.now() - hiddenAt > BACKGROUND_MS) lock();
       hiddenAt = null;
       delete document.documentElement.dataset.privacy;

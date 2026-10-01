@@ -92,11 +92,12 @@ export function registerVaultRoutes(app: FastifyInstance, ctx: Context): void {
   });
 
   app.delete<{ Params: { vaultID: string } }>("/api/v1/vaults/:vaultID", async (request, reply) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const vaultID = uuidField(request.params.vaultID);
     ctx.requireVaultAccess(request, vaultID);
     const fields = body(request.body, ["authKey"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.authKey, 32));
+    const user = await ctx.requireFreshAuth(principal, bytesField(fields.authKey, 32));
+    ctx.requireVaultAccess(request, vaultID);
     ctx.db.prepare("DELETE FROM vaults WHERE id = ?").run(vaultID);
     ctx.audit("vault.deleted", user.id, request);
     return reply.code(204).send();
@@ -172,11 +173,13 @@ export function registerVaultRoutes(app: FastifyInstance, ctx: Context): void {
   // Pairing: a signed-in browser mints a short-lived, single-use code. The
   // browser (never the server) puts the vault key next to it in a QR code.
   app.post<{ Params: { vaultID: string } }>("/api/v1/vaults/:vaultID/pairings", async (request, reply) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const vaultID = uuidField(request.params.vaultID);
     ctx.requireVaultAccess(request, vaultID);
     const fields = body(request.body, ["authKey"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.authKey, 32));
+    const user = await ctx.requireFreshAuth(principal, bytesField(fields.authKey, 32));
+    // Re-check after the await: the vault may have been deleted meanwhile.
+    ctx.requireVaultAccess(request, vaultID);
     const code = token(24);
     const at = now();
     ctx.db.prepare("DELETE FROM pairings WHERE expires_at <= ? OR claimed_at IS NOT NULL").run(at);

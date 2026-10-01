@@ -3,7 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { CardFace, Dialog, errorMessage, Icon, PasswordDialog } from "../components/ui.js";
 import { formatTime, regionName, t, tEnum } from "../i18n.js";
 import { goBack, navigate } from "../router.js";
-import { revision, vault } from "../session.js";
+import { revealGrace, revision, vault } from "../session.js";
 import type { ItemVersion, ProjectedItem } from "../vault.js";
 
 /**
@@ -15,7 +15,6 @@ import type { ItemVersion, ProjectedItem } from "../vault.js";
 
 const REVEAL_MS = 60 * 1000;
 const GRACE_MS = 5 * 60 * 1000;
-let graceUntil = 0;
 
 const CLIPBOARD_MS = 45 * 1000;
 let clipboardTimer: ReturnType<typeof setTimeout> | undefined;
@@ -214,7 +213,7 @@ export function ItemView({ itemID }: { itemID: string }) {
 
   const toggleReveal = () => {
     if (revealed) return setRevealed(false);
-    if (Date.now() < graceUntil) return setRevealed(true);
+    if (Date.now() < revealGrace.until) return setRevealed(true);
     setAsking(true);
   };
 
@@ -289,7 +288,7 @@ export function ItemView({ itemID }: { itemID: string }) {
         lead={t("revealLead")}
         onClose={() => setAsking(false)}
         onConfirmed={() => {
-          graceUntil = Date.now() + GRACE_MS;
+          revealGrace.until = Date.now() + GRACE_MS;
           setAsking(false);
           setRevealed(true);
         }}

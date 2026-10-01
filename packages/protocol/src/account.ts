@@ -93,7 +93,7 @@ export async function wrapAccountKey(accountKey: Uint8Array, accountID: string, 
   return serializeEnvelope(await sealEnvelope(plaintext, accountID, ACCOUNT_KEY_KIND, kek, randomness));
 }
 
-/** Returns a non-extractable key; the raw Account Key never outlives this call. */
+/** Returns a non-extractable key plus the raw bytes; callers that do not re-wrap must zero `raw` immediately. */
 export async function unwrapAccountKey(bytes: Uint8Array, accountID: string, kek: CryptoKey): Promise<{ key: CryptoKey; raw: Uint8Array }> {
   const envelope = parseEnvelope(bytes, { maximumBytes: 4096 });
   const plain = await openEnvelope(envelope, kek, { recordID: accountID, objectKind: ACCOUNT_KEY_KIND });

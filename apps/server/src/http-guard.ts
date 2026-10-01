@@ -19,7 +19,25 @@ export class ApiError extends Error {
   }
 }
 
+export const DEVICE_AUTHORIZATION = /^Bearer qcd_[A-Za-z0-9_-]{43}$/;
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Loopback and private (RFC 1918 / ULA) peers. Forwarded headers and the
+ * localhost development exemption are honoured only for connections that
+ * actually arrive from such a peer — the bundled proxy on the Docker network,
+ * or a local reverse proxy — never from a public address that forged them.
+ */
+export function isPrivatePeer(address: string | undefined): boolean {
+  if (!address) return false;
+  const ip = address.startsWith("::ffff:") ? address.slice(7) : address;
+  if (ip === "::1" || ip.startsWith("127.")) return true;
+  if (ip.startsWith("10.") || ip.startsWith("192.168.")) return true;
+  const match = /^172\.(\d+)\./.exec(ip);
+  if (match && Number(match[1]) >= 16 && Number(match[1]) <= 31) return true;
+  return /^f[cd][0-9a-f]{2}:/i.test(ip);
+}
 
 function hostname(hostHeader: string | undefined): string {
   if (!hostHeader) return "";
@@ -29,11 +47,11 @@ function hostname(hostHeader: string | undefined): string {
 }
 
 export function isLocalRequest(config: Config, request: FastifyRequest): boolean {
-  return config.allowInsecureLocalhost && LOCAL_HOSTS.has(hostname(request.headers.host));
+  return config.allowInsecureLocalhost && LOCAL_HOSTS.has(hostname(request.headers.host)) && isPrivatePeer(request.socket.remoteAddress);
 }
 
 export function isSecure(config: Config, request: FastifyRequest): boolean {
-  if (config.trustProxy) {
+  if (config.trustProxy && isPrivatePeer(request.socket.remoteAddress)) {
     const proto = String(request.headers["x-forwarded-proto"] ?? "")
       .split(",")[0]
       ?.trim();
@@ -93,7 +111,8 @@ export function registerGuards(app: FastifyInstance, config: Config): void {
     }
 
     const unsafe = !["GET", "HEAD", "OPTIONS"].includes(request.method);
-    const bearer = request.headers.authorization?.startsWith("Bearer ");
+    // Only a well-formed device token (which also disables cookie auth) is exempt from CSRF checks.
+    const bearer = request.headers.authorization !== undefined && DEVICE_AUTHORIZATION.test(request.headers.authorization);
     if (unsafe && path.startsWith("/api/") && !bearer && !NATIVE_PATHS.has(path)) {
       if (!allowedOrigin(config, request.headers.origin, request) || request.headers["x-quancard-client"] !== "web") {
         throw new ApiError(403, "crossOriginRejected");

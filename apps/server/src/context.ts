@@ -1,12 +1,15 @@
 import "@fastify/cookie";
+import { bytesEqual } from "@quancard/protocol";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import { type Database, now } from "./db.js";
-import { ApiError, isLocalRequest, RateLimiter } from "./http-guard.js";
+import { ApiError, DEVICE_AUTHORIZATION, isLocalRequest, RateLimiter } from "./http-guard.js";
 import { hashAuthKey, ServerKeys, safeEqual, sha256, token } from "./security.js";
 
 export const SESSION_COOKIE = "__Host-qc_session";
 const DEVICE_PREFIX = "qcd_";
+const LOCK_AFTER_FAILURES = 10;
+const LOCK_SECONDS = 15 * 60;
 
 export type AuditEvent =
   | "setup.owner_created"
@@ -88,10 +91,42 @@ export class Context {
     return safeEqual(candidate, user.verifier);
   }
 
-  /** Re-authentication for sensitive actions, rate limited per account. */
-  async requireFreshAuth(user: UserRow, authKey: Uint8Array): Promise<void> {
-    this.sensitiveLimiter.check(`reauth:${user.id}`);
-    if (!(await this.verifyAuthKey(user, authKey))) throw new ApiError(401, "invalidCredentials");
+  /**
+   * Atomic failure accounting: 10 consecutive failures (wrong password or
+   * wrong second factor, from any client) lock the account for 15 minutes.
+   */
+  recordAuthFailure(userID: string): void {
+    this.db
+      .prepare(
+        `UPDATE users SET
+           locked_until = CASE WHEN failed_logins + 1 >= ? THEN ? ELSE locked_until END,
+           failed_logins = CASE WHEN failed_logins + 1 >= ? THEN 0 ELSE failed_logins + 1 END
+         WHERE id = ?`,
+      )
+      .run(LOCK_AFTER_FAILURES, now() + LOCK_SECONDS, LOCK_AFTER_FAILURES, userID);
+  }
+
+  /**
+   * Re-authentication for sensitive actions. Returns the *current* user row,
+   * re-validated after the Argon2 await: if the password, security stamp or
+   * the session itself changed meanwhile, the stale proof is rejected. Callers
+   * must not await again before committing their change.
+   */
+  async requireFreshAuth(principal: Extract<Principal, { kind: "session" }>, authKey: Uint8Array): Promise<UserRow> {
+    const before = principal.user;
+    this.sensitiveLimiter.check(`reauth:${before.id}`);
+    if (before.locked_until > now()) throw new ApiError(429, "accountLocked", { retryAfterSeconds: before.locked_until - now() });
+    const ok = await this.verifyAuthKey(before, authKey);
+    const fresh = this.user(before.id);
+    const session = this.db.prepare("SELECT 1 FROM sessions WHERE token_hash = ?").get(principal.sessionHash);
+    if (!fresh || !session || fresh.security_stamp !== before.security_stamp || !bytesEqual(fresh.verifier, before.verifier)) {
+      throw new ApiError(401, "unauthorized");
+    }
+    if (!ok) {
+      this.recordAuthFailure(fresh.id);
+      throw new ApiError(401, "invalidCredentials");
+    }
+    return fresh;
   }
 
   issueSession(reply: FastifyReply, request: FastifyRequest, user: UserRow): void {
@@ -122,7 +157,9 @@ export class Context {
 
   authenticate(request: FastifyRequest): Principal | null {
     const authorization = request.headers.authorization;
-    if (authorization?.startsWith(`Bearer ${DEVICE_PREFIX}`)) {
+    // An Authorization header means device auth, full stop: never fall back to the cookie.
+    if (authorization !== undefined) {
+      if (!DEVICE_AUTHORIZATION.test(authorization)) return null;
       const value = authorization.slice("Bearer ".length);
       const device = this.db.prepare("SELECT id, user_id, vault_id FROM devices WHERE token_hash = ?").get(sha256(value)) as
         | { id: string; user_id: string; vault_id: string }

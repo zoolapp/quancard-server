@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import qrcode from "qrcode-generator";
 import { APIError } from "../api.js";
 import { type MessageKey, t, tEnum } from "../i18n.js";
-import { confirmPassword } from "../session.js";
+import { confirmPassword, SupersededError } from "../session.js";
+import { VaultClosedError } from "../vault.js";
 
 /* Icons: thin stroked line icons, drawn inline (no icon font, no external requests). */
 
@@ -35,6 +36,8 @@ export function Icon({ name, label }: { name: keyof typeof paths; label?: string
 /* Error mapping: server codes and protocol failures to user language. Never echoes input. */
 
 export function errorMessage(error: unknown): string {
+  // Work that finished after a lock is discarded silently; the lock screen explains itself.
+  if (error instanceof SupersededError || error instanceof VaultClosedError) return "";
   if (error instanceof APIError) {
     const map: Record<string, MessageKey> = {
       invalidCredentials: "errInvalidCredentials",

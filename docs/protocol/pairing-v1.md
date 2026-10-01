@@ -26,6 +26,8 @@ repository as a proposed ADR; until it ships, the QR code is not yet scannable b
    A manifest that fails verification aborts pairing.
 
 A code works once (`410 pairingInvalid` afterwards) and expired codes return the same error.
+The 10 minutes bound only the redemption of the code; the vault key in the QR does not expire (see
+§4). Changing the account password deletes unredeemed codes.
 
 ## 2. Device scope
 
@@ -45,11 +47,15 @@ revocation does not remove data or keys the device already holds.
 - Store the device token in the Keychain (`ThisDeviceOnly`), the SRK under the same protections as
   iCloud sync material, and never log either.
 - Reuse the sync v1 merge rules unchanged: immutable revisions, parent digests, no time-based
-  winner, bounded batches (≤ 100 records / 24 MiB per request window).
+  winner. Upload budget per sync run as with CloudKit: at most 5 batches of ≤ 100 revisions and
+  ≤ 24 MiB of raw envelope bytes each (one `PUT` per revision). Fetching uses the server's pages
+  (≤ 500 records, ≤ 24 MiB of raw envelope bytes before Base64) and the client's own totals of
+  ≤ 2,001 records / 64 MiB.
 - Show the host and let the user confirm before uploading existing items.
 
 ## 4. Security notes
 
-The QR code is a bearer secret for the whole vault for as long as the attacker can also reach the
-ciphertext. The UI requires fresh password entry, shows a warning, expires the code, and closes the
+The QR code is a bearer secret for the whole vault, indefinitely: the code part expires, the key part
+does not. Anyone who later obtains a photo of it can decrypt any ciphertext of that vault they can
+reach, until the items are moved to a new vault. The UI requires fresh password entry, shows a warning, expires the code, and closes the
 dialog on demand. See [THREAT_MODEL.md](../../THREAT_MODEL.md#28-lost-pairing-qr-code--limited-exposure).

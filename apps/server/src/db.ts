@@ -90,6 +90,11 @@ export const MIGRATIONS: readonly string[] = [
     ip_tag TEXT
   );
   CREATE INDEX audit_user ON audit_events(user_id, id);
+  CREATE UNIQUE INDEX users_single_owner ON users(is_owner) WHERE is_owner = 1;
+  CREATE TABLE server_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
   CREATE TRIGGER audit_no_update BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
   CREATE TRIGGER audit_no_delete BEFORE DELETE ON audit_events
     WHEN (SELECT COUNT(*) FROM users WHERE id = OLD.user_id) > 0

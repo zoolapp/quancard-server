@@ -36,10 +36,15 @@ Specifications: [auth v1](docs/protocol/auth-v1.md), [pairing v1](docs/protocol/
 ### 2.1 Stolen database, backup or disk image — **defended**
 
 The attacker gets ciphertext, wrapped keys, `Argon2id(authKey)` verifiers, KDF salts and
-encrypted TOTP secrets. To read vault data they must guess the account password offline against
-Argon2id at 64 MiB per guess, then still unwrap two layers of keys. A **weak password can be
-guessed**; that is why the client requires at least 15 characters and the UI explains that there is
-no reset.
+encrypted TOTP secrets. To read vault data they must guess the account password offline; each guess
+costs one client-side Argon2id evaluation at 64 MiB, after which trying to unwrap the Account Key
+confirms it. The two wrapping layers add no independent secret — **the password is the only barrier**,
+and two-step verification does not slow offline guessing. A weak password can be guessed; that is why
+the client requires at least 15 characters and the UI explains that there is no reset.
+
+Changing the password re-wraps the same Account Key; it is not key rotation. Anyone holding an
+older copy of the wrapped Account Key and the old password can still unwrap it. If you suspect the
+old password leaked together with a backup, create a new vault and move your items into it.
 
 Tested by: `apps/server/test/server.test.ts` (“never stores plaintext or keys”), e2e
 request-body scan in `e2e/vault.spec.ts`.
@@ -47,10 +52,17 @@ request-body scan in `e2e/vault.spec.ts`.
 ### 2.2 Network attacker — **defended (HTTPS required)**
 
 The server refuses non-HTTPS requests with `426` (only `localhost` is exempt, and only with the
-explicit `QC_ALLOW_INSECURE_LOCALHOST=1` development flag). HSTS (2 years), and the bundled Caddy
-obtains certificates automatically. Even a TLS failure exposes only ciphertext plus the
-`authKey`, which is not the password and does not decrypt anything by itself — but it does allow
-signing in, so HTTPS remains mandatory.
+explicit `QC_ALLOW_INSECURE_LOCALHOST=1` development flag and a loopback/private peer). Forwarded
+`X-Forwarded-Proto` headers are honoured only from private-network peers such as the bundled proxy.
+HSTS (2 years) is sent, and the bundled Caddy obtains certificates automatically.
+
+Distinguish three cases. A **passive** observer of a broken TLS session sees ciphertext and the
+`authKey` — a replayable login credential (not the password), enough to sign in but not to decrypt.
+An **active** attacker who can tamper with the page delivery (first visit over HTTP before HSTS, a
+mis-issued certificate, a compromised proxy) can replace the JavaScript and capture the password,
+keys and plaintext — the same outcome as §2.4. A `426` response cannot recall data a client already
+sent in clear. HTTPS and trusted delivery of the web client are therefore prerequisites, not
+defences that encryption provides on its own.
 
 ### 2.3 Honest-but-curious server operator — **defended for content, not for metadata**
 
@@ -75,17 +87,19 @@ What we do:
 - no CDNs, fonts, analytics or third-party requests at all — the bundle is self-contained;
 - open source and reproducible from this repository; release images are built by CI from tagged
   commits;
-- the iPhone app never executes server-supplied code, so it stays safe even if the server is
-  compromised (it can still be denied service or shown stale data).
+- the iPhone app does not execute server-supplied code, which removes this attack path for it; it
+  remains subject to its own protocol parsing, pairing and rollback limits (and can be denied
+  service or shown stale data).
 
 What you should do: run the server yourself, on infrastructure you control, keep it updated, and
 prefer the iPhone app when you do not trust the host. Planned (not yet shipped): published bundle
 hashes per release and an optional locally-installed static client.
 
-A malicious server can also **withhold or roll back** revisions or delete everything. Devices that
-already synced keep their copies and detect missing parents, but a brand-new device cannot prove it
-received the latest history. Keep the iPhone app and `.qvault` encrypted backups as independent
-copies.
+A malicious server can also **withhold or roll back** revisions or delete everything. Native
+devices that keep a persistent sync history detect some rollbacks through missing parents. The web
+client keeps history only in memory: after a lock or reload it trusts whatever consistent history the
+server returns, so it **cannot detect a rollback to an older, complete state**, and neither can a
+brand-new device. Keep the iPhone app and `.qvault` encrypted backups as independent copies.
 
 ### 2.5 Malicious browser extension, compromised device or someone at your unlocked screen — **NOT defended**
 
@@ -97,10 +111,13 @@ browser allows it. These are mitigations, not guarantees.
 
 ### 2.6 Online password guessing — **rate limited**
 
-10 credential attempts per minute per client; an account locks for 15 minutes after 10 consecutive
-failures; optional TOTP with single-use recovery codes and replay protection. Prelogin returns a
-stable decoy salt for unknown usernames, and failed logins for unknown users spend the same
-Argon2id work as real ones.
+10 attempts per minute per client **for each** credential endpoint; an account locks for 15 minutes
+after 10 consecutive failures from any source, counted atomically, where wrong passwords, wrong
+second-factor codes and failed re-authentication all count. Optional TOTP with single-use recovery
+codes and replay protection (codes are consumed with compare-and-set updates, so concurrent replays
+fail). Prelogin returns a stable decoy salt for unknown usernames, and failed logins for unknown users
+spend the same Argon2id work as real ones. Trade-off: anyone who knows your username can keep your
+account locked out (denial of service) — they still learn nothing.
 
 ### 2.7 CSRF, clickjacking, DNS rebinding — **defended**
 
@@ -108,13 +125,19 @@ Argon2id work as real ones.
 configured `Origin` and an `X-QuanCard-Client: web` header; `Host` must equal `QC_PUBLIC_ORIGIN`
 (`421` otherwise); `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 
-### 2.8 Lost pairing QR code — **limited exposure**
+### 2.8 Exposed pairing QR code — **long-lived key exposure**
 
-The pairing QR contains the vault key (that is how a new iPhone can decrypt) and a single-use code
-that expires after 10 minutes. Anyone who photographs it during that window can decrypt the vault if
-they also obtain the ciphertext. The QR is shown only after password re-entry, never enters the
-page as text, and the UI warns about this. Paired devices can be revoked; revocation stops future
-sync but cannot remove data or keys a device already has.
+The pairing QR contains the vault key (that is how a new iPhone can decrypt) and a one-time code.
+The **10-minute limit applies only to redeeming the code** for a device token. The vault key in the
+picture never expires: anyone who ever obtains a photo of the QR, at any time, can decrypt every
+revision written under that key that they can also obtain — past and future — until you move your
+items to a new vault. A redeemed device token also outlives the 10 minutes until it is revoked.
+
+Mitigations: the QR is shown only after password re-entry, never enters the page as text, and the UI
+warns about it. Changing the password deletes pending (unredeemed) pairing codes; it does not revoke
+paired devices — revoke them explicitly in Settings. Revocation stops server access only; it cannot
+remove data or keys a device already has. If a QR leaked, create a new vault, move your items, pair
+your devices again and delete the old vault.
 
 ## 3. Deletion
 
@@ -124,11 +147,17 @@ them. Deleting your account or a vault removes the server rows with SQLite `secu
 cannot erase copies on paired devices, in your own backups, or in filesystem/SSD remnants.
 QuanCard never claims instant physical erasure.
 
-## 4. Things QuanCard never stores
+## 4. Data QuanCard has no fields for
 
-PINs, PIN blocks, magnetic-stripe/chip track data, online-banking passwords and OTP seeds for your
-bank. The strict payload codec rejects these field names everywhere (`forbiddenField`), and CVC is
-accepted only in the payload schema that explicitly allows it.
+The vault schema has no fields for PINs, PIN blocks, magnetic-stripe/chip track data,
+online-banking passwords or bank OTP seeds, and the strict payload codec rejects such field names
+anywhere in a payload (`forbiddenField`); CVC is accepted only in the payload schema that explicitly
+allows it. This cannot stop you from typing such secrets into free-text notes or photographing them —
+please don't — and the server, which only sees ciphertext, cannot check.
+
+Integers in payloads are limited to the JavaScript safe range (±2^53−1) in this implementation. The
+iOS app only produces small counters and sort positions, so valid data is unaffected; a revision
+outside that range is treated as unreadable rather than silently rounded.
 
 ## 5. Out of scope
 

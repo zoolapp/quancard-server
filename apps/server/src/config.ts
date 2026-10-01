@@ -24,9 +24,15 @@ export interface Config {
 
 export class ConfigError extends Error {}
 
+function parsePort(value: string | undefined): number {
+  const port = Number(value ?? 8080);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new ConfigError("QC_PORT must be 1-65535");
+  return port;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const secretHex = env.QC_SECRET ?? "";
-  if (!/^[0-9a-fA-F]{64,}$/.test(secretHex)) {
+  if (!/^(?:[0-9a-fA-F]{2}){32,}$/.test(secretHex)) {
     throw new ConfigError("QC_SECRET must be at least 32 random bytes in hex (run: openssl rand -hex 32)");
   }
   const setupToken = env.QC_SETUP_TOKEN?.trim() || null;
@@ -52,7 +58,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     setupToken,
     dataDir: resolve(env.QC_DATA_DIR ?? "./data"),
     host: env.QC_HOST ?? "0.0.0.0",
-    port: Number(env.QC_PORT ?? 8080),
+    port: parsePort(env.QC_PORT),
     publicOrigin,
     trustProxy: env.QC_TRUST_PROXY === "1",
     allowInsecureLocalhost,

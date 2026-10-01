@@ -6,7 +6,7 @@ import Fastify, { type FastifyInstance, LogController } from "fastify";
 import type { Config } from "./config.js";
 import { Context } from "./context.js";
 import type { Database } from "./db.js";
-import { ApiError, registerGuards } from "./http-guard.js";
+import { ApiError, isPrivatePeer, registerGuards } from "./http-guard.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerVaultRoutes } from "./routes/vaults.js";
 
@@ -17,7 +17,7 @@ export interface BuildOptions {
 export async function buildApp(config: Config, db: Database, options: BuildOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     // Exactly one trusted hop (the bundled reverse proxy); client-supplied X-Forwarded-For entries are ignored.
-    trustProxy: config.trustProxy ? (_address: string, hop: number) => hop < 1 : false,
+    trustProxy: config.trustProxy ? (address: string, hop: number) => hop < 1 && isPrivatePeer(address) : false,
     bodyLimit: 1024 * 1024,
     logController: new LogController({ disableRequestLogging: true }),
     // Never derive request IDs from client headers; never log bodies, headers or URLs with queries.

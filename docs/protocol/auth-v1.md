@@ -36,8 +36,11 @@ with a CSPRNG, never derived from a password, device or account identifier.
 ## 3. Server-side verification
 
 The server stores `verifier = Argon2id(authKey, verifierSalt, m=19,456 KiB, t=2, p=1)` with a fresh
-16-byte `verifierSalt`, and compares in constant time. `authKey` already has 256 bits of entropy; the
-second hash only ensures a leaked database cannot be replayed as a login.
+16-byte `verifierSalt`, and compares in constant time. `authKey` is a 256-bit *output*, but its
+resistance to guessing is only that of the password behind the client-side KDF. It is a replayable
+login credential, not a PAKE proof. The second hash ensures a leaked database cannot be replayed
+directly as a login; it adds little against offline password guessing, which can target the wrapped
+Account Key instead.
 
 ## 4. Flows
 
@@ -61,8 +64,17 @@ No credential is sent.
 
 **Password change** (`POST /api/v1/account/password`): requires `currentAuthKey`. The client
 unwraps the Account Key with the old KEK, derives a new salt/authKey/KEK and re-wraps the same
-Account Key. Vault keys and revisions are untouched. The server rotates the account’s security stamp
-and deletes every session, then issues a fresh one to the caller.
+Account Key. Vault keys and revisions are untouched — this is re-wrapping, not key rotation. The
+server commits only if the account's security stamp is unchanged since the proof was checked
+(`409 staleCredentials` otherwise), rotates the stamp, deletes every session and pending pairing
+code, then issues a fresh session to the caller. Paired devices are not revoked.
+
+**Owner setup token** is single use: once an owner is created its hash is recorded, and an emptied
+server needs a new `QC_SETUP_TOKEN` value to run setup again.
+
+**Concurrency.** Handlers finish all Argon2 work first, then re-read the account inside one
+synchronous `BEGIN IMMEDIATE` transaction and commit with conditional updates; a proof checked
+against state that changed meanwhile is rejected.
 
 **Fresh authentication** for sensitive actions (pairing, vault deletion, TOTP changes, account
 deletion) re-sends `authKey` derived from a newly typed password; rate limited per account.
@@ -86,16 +98,16 @@ account ID as AAD. The last accepted step is recorded; codes from that step or e
 
 | Control | Limit |
 | --- | --- |
-| Credential endpoints per client tag (`setup`, `register`, `prelogin`, `login`, `pairings/claim`) | 10 / minute |
+| Each credential endpoint per client tag (`setup`, `register`, `prelogin`, `login`, `pairings/claim` — counted separately) | 10 / minute |
 | Fresh-auth endpoints per account | 10 / minute |
-| Consecutive failed logins | 10 → account locked 15 minutes (`429 accountLocked`) |
+| Consecutive failures per account (wrong password, wrong second factor, failed re-authentication; any source; atomic) | 10 → account locked 15 minutes (`429 accountLocked`) |
 | Unknown user login | Same Argon2id work as a real check |
 
 Client tags are `HMAC(server key, IP)[0..8]`; raw IP addresses are never stored.
 
 ## 8. Error codes
 
-`invalidCredentials`, `secondFactorRequired`, `invalidSecondFactor`, `accountLocked`,
+`invalidCredentials`, `secondFactorRequired`, `invalidSecondFactor`, `accountLocked`, `staleCredentials`,
 `rateLimited`, `setupClosed`, `invalidSetupToken`, `usernameTaken`, `invalidUsername`,
 `invalidInvite`, `totpAlreadyEnabled`, `totpNotPending`, `confirmationMismatch`, `ownerHasMembers`,
 `unauthorized`, `forbidden`, `badRequest`. Responses never echo submitted values.

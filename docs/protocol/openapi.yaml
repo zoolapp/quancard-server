@@ -612,6 +612,13 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           $ref: '#/components/responses/CrossOriginRejected'
+        '409':
+          description: 'staleCredentials: the account changed (for example another password change) after the current
+            password was verified; nothing was changed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '413':
           $ref: '#/components/responses/PayloadTooLarge'
         '415':
@@ -621,7 +628,11 @@ paths:
         '426':
           $ref: '#/components/responses/HttpsRequired'
         '429':
-          $ref: '#/components/responses/RateLimited'
+          description: 'rateLimited or accountLocked; Retry-After is set.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/Internal'
   /api/v1/account/totp/setup:
@@ -1811,7 +1822,6 @@ components:
       - recoveryCodesRemaining
       - createdAt
       - passwordChangedAt
-      - signupsOpen
       properties:
         accountID:
           $ref: '#/components/schemas/UUID'
@@ -1832,10 +1842,6 @@ components:
           $ref: '#/components/schemas/Timestamp'
         passwordChangedAt:
           $ref: '#/components/schemas/Timestamp'
-        signupsOpen:
-          type: boolean
-          description: True only when a setup token is configured and there are no users. This is false in successful
-            account responses.
     SetupRequest:
       type: object
       additionalProperties: false

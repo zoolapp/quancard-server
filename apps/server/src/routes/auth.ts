@@ -1,5 +1,5 @@
-import { ACCOUNT_KDF, parseEnvelope } from "@quancard/protocol";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import { ACCOUNT_KDF, bytesEqual, parseEnvelope } from "@quancard/protocol";
+import type { FastifyInstance } from "fastify";
 import type { Context, UserRow } from "../context.js";
 import { now, transaction } from "../db.js";
 import { ApiError } from "../http-guard.js";
@@ -7,8 +7,14 @@ import { hashAuthKey, safeEqualText, sha256, token } from "../security.js";
 import { newRecoveryCodes, newTOTPSecret, normalizeRecoveryCode, otpauthURI, verifyTOTP } from "../totp.js";
 import { body, bytesField, optionalText, textField, username, uuidField } from "../validate.js";
 
-const LOCK_AFTER_FAILURES = 10;
-const LOCK_SECONDS = 15 * 60;
+/**
+ * Concurrency rule for this file: Argon2 work is awaited first, outside any
+ * transaction; afterwards the handler re-reads current state inside one
+ * synchronous IMMEDIATE transaction and applies conditional updates. No await
+ * happens between the re-read and the write, so two in-flight requests can
+ * never act on the same stale snapshot.
+ */
+
 const INVITE_SECONDS = 7 * 24 * 60 * 60;
 
 /** Fields shared by setup and invite registration (auth-v1 §3). */
@@ -35,7 +41,7 @@ function checkWrappedAccountKey(bytes: Uint8Array, accountID: string): void {
   }
 }
 
-export function accountView(ctx: Context, user: UserRow) {
+export function accountView(_ctx: Context, user: UserRow) {
   return {
     accountID: user.id,
     username: user.username,
@@ -46,7 +52,6 @@ export function accountView(ctx: Context, user: UserRow) {
     recoveryCodesRemaining: user.recovery_codes ? (JSON.parse(user.recovery_codes) as string[]).length : 0,
     createdAt: user.created_at,
     passwordChangedAt: user.password_changed_at,
-    signupsOpen: ctx.config.setupToken !== null && userCount(ctx) === 0,
   };
 }
 
@@ -54,71 +59,108 @@ function userCount(ctx: Context): number {
   return (ctx.db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number }).n;
 }
 
-async function createUser(ctx: Context, fields: Record<string, unknown>, isOwner: boolean): Promise<UserRow> {
+function setupTokenConsumed(ctx: Context, tokenValue: string): boolean {
+  return !!ctx.db.prepare("SELECT 1 FROM server_state WHERE key = 'setup_token_consumed' AND value = ?").get(sha256(tokenValue).toString("hex"));
+}
+
+interface PreparedUser {
+  name: string;
+  accountID: string;
+  kdfSalt: Uint8Array;
+  wrapped: Uint8Array;
+  verifier: Buffer;
+  verifierSalt: Buffer;
+}
+
+/** Validates registration fields and does the expensive hashing; writes nothing. */
+async function prepareUser(fields: Record<string, unknown>): Promise<PreparedUser> {
   const name = username(fields.username);
   const accountID = uuidField(fields.accountID);
   const kdfSalt = bytesField(fields.kdfSalt, ACCOUNT_KDF.saltBytes);
   const authKey = bytesField(fields.authKey, 32);
   const wrapped = bytesField(fields.wrappedAccountKey, undefined, 4096);
   checkWrappedAccountKey(wrapped, accountID);
-  if (ctx.userByName(name)) throw new ApiError(409, "usernameTaken");
   const verifierSalt = Buffer.from(token(16), "base64url");
   const verifier = await hashAuthKey(authKey, verifierSalt);
+  return { name, accountID, kdfSalt, wrapped, verifier, verifierSalt };
+}
+
+/** Must run inside a transaction. */
+function insertUser(ctx: Context, user: PreparedUser, isOwner: boolean): UserRow {
+  if (ctx.userByName(user.name)) throw new ApiError(409, "usernameTaken");
+  if (ctx.user(user.accountID)) throw new ApiError(409, "usernameTaken");
   const at = now();
   ctx.db
     .prepare(
       `INSERT INTO users (id, username, is_owner, kdf_salt, verifier, verifier_salt, wrapped_account_key, security_stamp, created_at, password_changed_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(accountID, name, isOwner ? 1 : 0, kdfSalt, verifier, verifierSalt, wrapped, token(16), at, at);
-  return ctx.user(accountID) as UserRow;
+    .run(user.accountID, user.name, isOwner ? 1 : 0, user.kdfSalt, user.verifier, user.verifierSalt, user.wrapped, token(16), at, at);
+  return ctx.user(user.accountID) as UserRow;
 }
 
-function consumeRecoveryCode(ctx: Context, user: UserRow, code: string): boolean {
-  const stored = user.recovery_codes ? (JSON.parse(user.recovery_codes) as string[]) : [];
-  const digest = ctx.keys.hmac("recovery", normalizeRecoveryCode(code)).toString("hex");
-  const index = stored.findIndex((candidate) => safeEqualText(candidate, digest));
-  if (index < 0) return false;
-  stored.splice(index, 1);
-  ctx.db.prepare("UPDATE users SET recovery_codes = ? WHERE id = ?").run(JSON.stringify(stored), user.id);
-  return true;
-}
+type FactorResult = "ok" | "required" | "invalid";
 
-function checkSecondFactor(ctx: Context, user: UserRow, fields: Record<string, unknown>, request: FastifyRequest): void {
-  if (!user.totp_secret) return;
-  const code = fields.totp;
-  const recovery = fields.recoveryCode;
-  if (typeof code === "string") {
+/**
+ * Consumes a TOTP step or recovery code from the *current* row with
+ * compare-and-set updates. Must run inside a transaction.
+ */
+function consumeSecondFactor(ctx: Context, user: UserRow, fields: Record<string, unknown>): FactorResult {
+  if (!user.totp_secret) return "ok";
+  if (typeof fields.totp === "string") {
     const secret = ctx.keys.open(user.totp_secret, `totp|${user.id}`);
-    const step = verifyTOTP(secret, code, Date.now(), user.totp_last_step);
-    if (step === null) throw new ApiError(401, "invalidSecondFactor");
-    ctx.db.prepare("UPDATE users SET totp_last_step = ? WHERE id = ?").run(step, user.id);
-    return;
+    const step = verifyTOTP(secret, fields.totp, Date.now(), user.totp_last_step);
+    if (step === null) return "invalid";
+    const updated = ctx.db.prepare("UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?").run(step, user.id, step);
+    return updated.changes === 1 ? "ok" : "invalid";
   }
-  if (typeof recovery === "string") {
-    if (!consumeRecoveryCode(ctx, user, recovery)) throw new ApiError(401, "invalidSecondFactor");
-    ctx.audit("recovery_code.used", user.id, request);
-    return;
+  if (typeof fields.recoveryCode === "string") {
+    const stored = user.recovery_codes ? (JSON.parse(user.recovery_codes) as string[]) : [];
+    const digest = ctx.keys.hmac("recovery", normalizeRecoveryCode(fields.recoveryCode)).toString("hex");
+    const index = stored.findIndex((candidate) => safeEqualText(candidate, digest));
+    if (index < 0) return "invalid";
+    const remaining = stored.filter((_, i) => i !== index);
+    const updated = ctx.db
+      .prepare("UPDATE users SET recovery_codes = ? WHERE id = ? AND recovery_codes = ?")
+      .run(JSON.stringify(remaining), user.id, user.recovery_codes as string);
+    return updated.changes === 1 ? "ok" : "invalid";
   }
-  throw new ApiError(401, "secondFactorRequired");
+  return "required";
+}
+
+function factorError(result: FactorResult): ApiError {
+  return result === "required" ? new ApiError(401, "secondFactorRequired") : new ApiError(401, "invalidSecondFactor");
 }
 
 export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
-  app.get("/api/v1/status", async () => ({
-    service: "quancard-server",
-    version: ctx.config.version,
-    setupRequired: userCount(ctx) === 0,
-    setupEnabled: ctx.config.setupToken !== null,
-    protocol: { auth: 1, sync: 1, envelope: 1 },
-  }));
+  app.get("/api/v1/status", async () => {
+    const users = userCount(ctx);
+    const token = ctx.config.setupToken;
+    return {
+      service: "quancard-server",
+      version: ctx.config.version,
+      setupRequired: users === 0,
+      setupEnabled: token !== null && users === 0 && !setupTokenConsumed(ctx, token),
+      protocol: { auth: 1, sync: 1, envelope: 1 },
+    };
+  });
 
   app.post("/api/v1/setup", async (request, reply) => {
     ctx.authLimiter.check(`setup:${ctx.clientTag(request)}`);
     const fields = body(request.body, ["setupToken", ...REGISTRATION_FIELDS]);
     const expected = ctx.config.setupToken;
-    if (!expected || userCount(ctx) > 0) throw new ApiError(403, "setupClosed");
+    if (!expected || userCount(ctx) > 0 || setupTokenConsumed(ctx, expected)) throw new ApiError(403, "setupClosed");
     if (!safeEqualText(textField(fields.setupToken, 256), expected)) throw new ApiError(403, "invalidSetupToken");
-    const user = await createUser(ctx, fields, true);
+    const prepared = await prepareUser(fields);
+    const user = transaction(ctx.db, () => {
+      // Re-check after hashing: only one concurrent setup may create the owner, and a token works once.
+      if (userCount(ctx) > 0 || setupTokenConsumed(ctx, expected)) throw new ApiError(403, "setupClosed");
+      const created = insertUser(ctx, prepared, true);
+      ctx.db
+        .prepare("INSERT INTO server_state (key, value) VALUES ('setup_token_consumed', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .run(sha256(expected).toString("hex"));
+      return created;
+    });
     ctx.audit("setup.owner_created", user.id, request);
     ctx.issueSession(reply, request, user);
     return reply.code(201).send(accountView(ctx, user));
@@ -139,20 +181,17 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
   app.post("/api/v1/register", async (request, reply) => {
     ctx.authLimiter.check(`register:${ctx.clientTag(request)}`);
     const fields = body(request.body, ["inviteCode", ...REGISTRATION_FIELDS]);
-    const code = textField(fields.inviteCode, 64);
-    const user = await (async () => {
-      const invite = ctx.db.prepare("SELECT expires_at, used_at FROM invites WHERE code_hash = ?").get(sha256(code)) as
-        | { expires_at: number; used_at: number | null }
-        | undefined;
-      if (!invite || invite.used_at !== null || invite.expires_at <= now()) throw new ApiError(403, "invalidInvite");
-      const created = await createUser(ctx, fields, false);
-      const claimed = ctx.db.prepare("UPDATE invites SET used_at = ? WHERE code_hash = ? AND used_at IS NULL").run(now(), sha256(code));
-      if (claimed.changes !== 1) {
-        ctx.db.prepare("DELETE FROM users WHERE id = ?").run(created.id);
-        throw new ApiError(403, "invalidInvite");
-      }
+    const codeHash = sha256(textField(fields.inviteCode, 64));
+    const valid = () => ctx.db.prepare("SELECT 1 FROM invites WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?").get(codeHash, now()) !== undefined;
+    if (!valid()) throw new ApiError(403, "invalidInvite");
+    const prepared = await prepareUser(fields);
+    // User creation and invite consumption commit together or not at all.
+    const user = transaction(ctx.db, () => {
+      if (!valid()) throw new ApiError(403, "invalidInvite");
+      const created = insertUser(ctx, prepared, false);
+      ctx.db.prepare("UPDATE invites SET used_at = ? WHERE code_hash = ?").run(now(), codeHash);
       return created;
-    })();
+    });
     ctx.audit("account.registered", user.id, request);
     ctx.issueSession(reply, request, user);
     return reply.code(201).send(accountView(ctx, user));
@@ -172,29 +211,44 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     const fields = body(request.body, ["username", "authKey", "totp", "recoveryCode"]);
     const name = username(fields.username);
     const authKey = bytesField(fields.authKey, 32);
-    const user = ctx.userByName(name);
-    if (!user) {
+    const snapshot = ctx.userByName(name);
+    if (!snapshot) {
       // Spend the same work as a real check to blunt timing-based enumeration.
       await hashAuthKey(authKey, ctx.keys.decoySalt(name));
       throw new ApiError(401, "invalidCredentials");
     }
-    const at = now();
-    if (user.locked_until > at) {
-      ctx.audit("login.locked", user.id, request);
-      throw new ApiError(429, "accountLocked", { retryAfterSeconds: user.locked_until - at });
+    if (snapshot.locked_until > now()) {
+      ctx.audit("login.locked", snapshot.id, request);
+      throw new ApiError(429, "accountLocked", { retryAfterSeconds: snapshot.locked_until - now() });
     }
-    if (!(await ctx.verifyAuthKey(user, authKey))) {
-      const failures = user.failed_logins + 1;
-      const lockedUntil = failures >= LOCK_AFTER_FAILURES ? at + LOCK_SECONDS : 0;
-      ctx.db.prepare("UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?").run(lockedUntil ? 0 : failures, lockedUntil, user.id);
-      ctx.audit("login.failure", user.id, request);
-      throw new ApiError(401, "invalidCredentials");
+    const passwordOK = await ctx.verifyAuthKey(snapshot, authKey);
+
+    const outcome = transaction(ctx.db, () => {
+      const user = ctx.user(snapshot.id);
+      // The password may have changed while we hashed; a match against the old verifier proves nothing now.
+      if (!user || !bytesEqual(user.verifier, snapshot.verifier)) return { error: new ApiError(401, "invalidCredentials") };
+      if (user.locked_until > now()) return { error: new ApiError(429, "accountLocked", { retryAfterSeconds: user.locked_until - now() }) };
+      if (!passwordOK) {
+        ctx.recordAuthFailure(user.id);
+        return { error: new ApiError(401, "invalidCredentials"), failure: user.id };
+      }
+      const factor = consumeSecondFactor(ctx, user, fields);
+      if (factor !== "ok") {
+        // Wrong second factors count against the same per-account budget as wrong passwords.
+        if (factor === "invalid") ctx.recordAuthFailure(user.id);
+        return { error: factorError(factor), failure: factor === "invalid" ? user.id : undefined };
+      }
+      ctx.db.prepare("UPDATE users SET failed_logins = 0, locked_until = 0 WHERE id = ?").run(user.id);
+      return { user: ctx.user(user.id) as UserRow, usedRecovery: typeof fields.totp !== "string" && user.totp_secret !== null };
+    });
+    if ("error" in outcome) {
+      if (outcome.failure) ctx.audit("login.failure", outcome.failure, request);
+      throw outcome.error;
     }
-    checkSecondFactor(ctx, user, fields, request);
-    ctx.db.prepare("UPDATE users SET failed_logins = 0, locked_until = 0 WHERE id = ?").run(user.id);
-    ctx.audit("login.success", user.id, request);
-    ctx.issueSession(reply, request, user);
-    return accountView(ctx, ctx.user(user.id) as UserRow);
+    if (outcome.usedRecovery) ctx.audit("recovery_code.used", outcome.user.id, request);
+    ctx.audit("login.success", outcome.user.id, request);
+    ctx.issueSession(reply, request, outcome.user);
+    return accountView(ctx, outcome.user);
   });
 
   app.post("/api/v1/auth/logout", async (request, reply) => {
@@ -210,36 +264,40 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
   app.get("/api/v1/account", async (request) => accountView(ctx, ctx.requireSession(request).user));
 
   app.post("/api/v1/account/password", async (request, reply) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const fields = body(request.body, ["currentAuthKey", "kdfSalt", "authKey", "wrappedAccountKey"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.currentAuthKey, 32));
     const kdfSalt = bytesField(fields.kdfSalt, ACCOUNT_KDF.saltBytes);
     const authKey = bytesField(fields.authKey, 32);
     const wrapped = bytesField(fields.wrappedAccountKey, undefined, 4096);
-    checkWrappedAccountKey(wrapped, user.id);
+    checkWrappedAccountKey(wrapped, principal.user.id);
     const verifierSalt = Buffer.from(token(16), "base64url");
     const verifier = await hashAuthKey(authKey, verifierSalt);
+    // Last await: everything after re-validates and commits synchronously.
+    const fresh = await ctx.requireFreshAuth(principal, bytesField(fields.currentAuthKey, 32));
     transaction(ctx.db, () => {
-      ctx.db
+      const updated = ctx.db
         .prepare(
-          "UPDATE users SET kdf_salt = ?, verifier = ?, verifier_salt = ?, wrapped_account_key = ?, security_stamp = ?, password_changed_at = ? WHERE id = ?",
+          "UPDATE users SET kdf_salt = ?, verifier = ?, verifier_salt = ?, wrapped_account_key = ?, security_stamp = ?, password_changed_at = ? WHERE id = ? AND security_stamp = ?",
         )
-        .run(kdfSalt, verifier, verifierSalt, wrapped, token(16), now(), user.id);
-      ctx.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+        .run(kdfSalt, verifier, verifierSalt, wrapped, token(16), now(), fresh.id, fresh.security_stamp);
+      if (updated.changes !== 1) throw new ApiError(409, "staleCredentials");
+      ctx.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(fresh.id);
+      ctx.db.prepare("DELETE FROM pairings WHERE user_id = ?").run(fresh.id);
     });
-    ctx.audit("password.changed", user.id, request);
+    ctx.audit("password.changed", fresh.id, request);
     // Every other browser session is signed out; this one gets a fresh session.
-    ctx.issueSession(reply, request, ctx.user(user.id) as UserRow);
-    return accountView(ctx, ctx.user(user.id) as UserRow);
+    const after = ctx.user(fresh.id) as UserRow;
+    ctx.issueSession(reply, request, after);
+    return accountView(ctx, after);
   });
 
   app.post("/api/v1/account/totp/setup", async (request) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const fields = body(request.body, ["authKey"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.authKey, 32));
+    const user = await ctx.requireFreshAuth(principal, bytesField(fields.authKey, 32));
     if (user.totp_secret) throw new ApiError(409, "totpAlreadyEnabled");
     const secret = newTOTPSecret();
-    ctx.db.prepare("UPDATE users SET totp_pending = ? WHERE id = ?").run(ctx.keys.seal(secret, `totp-pending|${user.id}`), user.id);
+    ctx.db.prepare("UPDATE users SET totp_pending = ? WHERE id = ? AND totp_secret IS NULL").run(ctx.keys.seal(secret, `totp-pending|${user.id}`), user.id);
     return { otpauthURI: otpauthURI(secret, user.username, "QuanCard") };
   });
 
@@ -253,20 +311,32 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     if (step === null) throw new ApiError(401, "invalidSecondFactor");
     const codes = newRecoveryCodes();
     const hashes = codes.map((c) => ctx.keys.hmac("recovery", normalizeRecoveryCode(c)).toString("hex"));
-    ctx.db
-      .prepare("UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_last_step = ?, recovery_codes = ? WHERE id = ?")
-      .run(ctx.keys.seal(secret, `totp|${user.id}`), step, JSON.stringify(hashes), user.id);
+    const updated = ctx.db
+      .prepare(
+        "UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_last_step = ?, recovery_codes = ? WHERE id = ? AND totp_secret IS NULL AND totp_pending = ?",
+      )
+      .run(ctx.keys.seal(secret, `totp|${user.id}`), step, JSON.stringify(hashes), user.id, user.totp_pending);
+    if (updated.changes !== 1) throw new ApiError(409, "totpNotPending");
     ctx.audit("totp.enabled", user.id, request);
     return { recoveryCodes: codes };
   });
 
   app.post("/api/v1/account/totp/disable", async (request) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const fields = body(request.body, ["authKey", "totp", "recoveryCode"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.authKey, 32));
-    checkSecondFactor(ctx, user, fields, request);
-    ctx.db.prepare("UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last_step = -1, recovery_codes = NULL WHERE id = ?").run(user.id);
-    ctx.audit("totp.disabled", user.id, request);
+    const fresh = await ctx.requireFreshAuth(principal, bytesField(fields.authKey, 32));
+    const failure = transaction(ctx.db, () => {
+      const user = ctx.user(fresh.id) as UserRow;
+      const factor = consumeSecondFactor(ctx, user, fields);
+      if (factor !== "ok") {
+        if (factor === "invalid") ctx.recordAuthFailure(user.id);
+        return factorError(factor);
+      }
+      ctx.db.prepare("UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last_step = -1, recovery_codes = NULL WHERE id = ?").run(user.id);
+      return null;
+    });
+    if (failure) throw failure;
+    ctx.audit("totp.disabled", fresh.id, request);
     return { totpEnabled: false };
   });
 
@@ -306,12 +376,12 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
   });
 
   app.delete("/api/v1/account", async (request, reply) => {
-    const { user } = ctx.requireSession(request);
+    const principal = ctx.requireSession(request);
     const fields = body(request.body, ["authKey", "confirm"]);
-    await ctx.requireFreshAuth(user, bytesField(fields.authKey, 32));
+    const user = await ctx.requireFreshAuth(principal, bytesField(fields.authKey, 32));
     if (optionalText(fields.confirm, 64) !== user.username) throw new ApiError(400, "confirmationMismatch");
-    if (user.is_owner === 1 && userCount(ctx) > 1) throw new ApiError(409, "ownerHasMembers");
     transaction(ctx.db, () => {
+      if (user.is_owner === 1 && userCount(ctx) > 1) throw new ApiError(409, "ownerHasMembers");
       ctx.db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
       ctx.db.prepare("DELETE FROM audit_events WHERE user_id = ?").run(user.id);
     });

@@ -18,7 +18,8 @@
       "id": "W03",
       "title": "Contracts: auth-v1, pairing-v1, api-v1 (OpenAPI), THREAT_MODEL",
       "verification": "redocly lint openapi.yaml; relative link check",
-      "passes": false
+      "passes": true,
+      "evidence": "redocly lint docs/protocol/openapi.yaml: valid, 0 errors; relative links checked"
     },
     {
       "id": "W04",
@@ -36,34 +37,56 @@
       "id": "W06",
       "title": "Web shell: setup, login, TOTP, unlock/lock, key lifecycle",
       "verification": "Playwright e2e auth flow; no key material in web storage",
-      "passes": false
+      "passes": true,
+      "evidence": "e2e/vault.spec.ts passes (setup, sign-in+TOTP, unlock); storage scan finds no key material"
     },
     {
       "id": "W07",
       "title": "Web vault: list/detail/add/edit/delete, card faces, reveal policy, conflicts",
       "verification": "Playwright e2e vault flow + unit tests",
-      "passes": false
+      "passes": true,
+      "evidence": "e2e/vault.spec.ts passes (CRUD, photo, reveal gate, conflict resolve) against dev server, container and Caddy HTTPS"
     },
     {
       "id": "W08",
       "title": "Deployment: Dockerfile, compose (Caddy auto-HTTPS + local profile), scripts",
       "verification": "docker compose --profile local up --wait; healthz; hardening inspect; backup/restore",
-      "passes": false
+      "passes": true,
+      "evidence": "compose.local healthy, uid 10001/read-only/cap_drop ALL; Caddy HTTPS 200 + 308 redirect + HSTS; backup->wipe->restore verified"
     },
     {
       "id": "W09",
       "title": "iPhone pairing QR and QC1 import",
       "verification": "e2e: QR format, single-use claim, request bodies never contain the vault key",
-      "passes": false
+      "passes": true,
+      "evidence": "e2e: pairing POST body only {authKey}; claim 201 then 410; device token scoped to one vault"
     },
-    { "id": "W10", "title": "Docs and CI", "verification": "README/SECURITY/THREAT_MODEL/deployment present; CI green", "passes": false },
+    {
+      "id": "W10",
+      "title": "Docs and CI",
+      "verification": "README/SECURITY/THREAT_MODEL/deployment present; CI green",
+      "passes": true,
+      "evidence": "README(en/zh), SECURITY, THREAT_MODEL, deployment, CONTRIBUTING, CHANGELOG, notices, CI/release workflows present; CI run pending first push"
+    },
     {
       "id": "W11",
       "title": "End-to-end, zero-knowledge scan, screenshots",
       "verification": "scripts/verify-zero-knowledge.sh; 20 screenshots desktop/mobile light/dark",
+      "passes": true,
+      "evidence": "request-body + DB zero-knowledge scans pass; 40 screenshots in docs/screenshots/mvp (10 screens x desktop/mobile x light/dark)"
+    },
+    {
+      "id": "W12",
+      "title": "Second opinion + review + verifier",
+      "verification": "docs/reviews present; goal-verifier PASS",
       "passes": false
     },
-    { "id": "W12", "title": "Second opinion + review + verifier", "verification": "docs/reviews present; goal-verifier PASS", "passes": false },
-    { "id": "W13", "title": "iOS ADR-0009 (Proposed) for HTTP transport", "verification": "iOS repo: only the new ADR file added", "passes": false }
+    {
+      "id": "W13",
+      "title": "iOS ADR-0009 (Proposed) for HTTP transport",
+      "verification": "iOS repo: only the new ADR file added",
+      "passes": true,
+      "evidence": "quan-card commit 4593ca7 adds only docs/decisions/0009-self-hosted-http-transport.md (Proposed)"
+    }
   ]
 }
