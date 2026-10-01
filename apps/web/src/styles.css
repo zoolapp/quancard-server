@@ -101,7 +101,8 @@ a {
 .page {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 0 var(--edge) 120px;
+  /* Room below the last row for the floating add button. */
+  padding: 0 var(--edge) calc(120px + env(safe-area-inset-bottom));
   min-height: 100dvh;
 }
 

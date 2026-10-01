@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export * from "./account.js";
 export * from "./bytes.js";
 export * from "./envelope.js";

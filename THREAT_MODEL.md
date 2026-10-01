@@ -85,8 +85,9 @@ What we do:
 - strict Content-Security-Policy (`default-src 'none'`, no inline script, no third-party origins),
   so injected markup cannot load external code;
 - no CDNs, fonts, analytics or third-party requests at all — the bundle is self-contained;
-- open source and reproducible from this repository; release images are built by CI from tagged
-  commits;
+- open source and buildable from this repository; release images are built by CI from tagged
+  commits with provenance and an SBOM, and web bundle hashes are attached to each release
+  (bit-for-bit reproducibility across machines is not yet verified);
 - the iPhone app does not execute server-supplied code, which removes this attack path for it; it
   remains subject to its own protocol parsing, pairing and rollback limits (and can be denied
   service or shown stale data).
@@ -106,7 +107,7 @@ brand-new device. Keep the iPhone app and `.qvault` encrypted backups as indepen
 Anything that can read the page or memory of an unlocked tab can read what you can read. The web
 client limits the window: keys exist only in memory, the vault locks after 5 minutes idle or 60
 seconds in the background, sensitive card fields (number, expiry, holder, CVC) stay masked until you
-re-enter your password, and copied values are cleared from the clipboard after 45 seconds when the
+re-enter your password (shown for 60 seconds; no new prompt for 5 minutes, revoked on lock), and copied values are cleared from the clipboard after 45 seconds when the
 browser allows it. These are mitigations, not guarantees.
 
 ### 2.6 Online password guessing — **rate limited**

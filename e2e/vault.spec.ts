@@ -29,7 +29,8 @@ const VAULT_ID = randomUUID();
 const SYNC_KEY = randomBytes(32);
 const QC1 = recoveryCode({ vaultID: VAULT_ID, key: SYNC_KEY });
 
-const shotDir = "docs/screenshots/mvp";
+/** Screenshots overwrite tracked files only when explicitly requested (E2E_SCREENSHOTS=1). */
+const shotDir = process.env.E2E_SCREENSHOTS === "1" ? "docs/screenshots/mvp" : "test-results/screenshots";
 mkdirSync(shotDir, { recursive: true });
 
 const sentBodies: string[] = [];
@@ -316,19 +317,10 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
 
   // --- Zero-knowledge: nothing readable ever left the browser ---------------------------
   const wire = sentBodies.join("\n");
-  for (const needle of [
-    PASSWORD,
-    NEW_PASSWORD,
-    PAN,
-    "0000 0000 0000 1234",
-    CVC === "987" ? '"987"' : CVC,
-    IBAN,
-    "TEST_ONLY lounge",
-    "Synthetic Travel",
-    "TEST HOLDER",
-    base64.encode(SYNC_KEY),
-    QC1.split(".")[2] as string,
-  ]) {
+  const plain = [PASSWORD, NEW_PASSWORD, PAN, "0000 0000 0000 1234", '"987"', IBAN, "TEST_ONLY lounge", "Synthetic Travel", "TEST HOLDER"];
+  // Also catch plaintext that was merely Base64-encoded or JSON-escaped on its way out.
+  const encoded = plain.flatMap((p) => [Buffer.from(p).toString("base64"), Buffer.from(p).toString("base64url"), JSON.stringify(p).slice(1, -1)]);
+  for (const needle of [...plain, ...encoded, base64.encode(SYNC_KEY), QC1.split(".")[2] as string]) {
     expect(wire, `request bodies must not contain ${needle}`).not.toContain(needle);
   }
 });

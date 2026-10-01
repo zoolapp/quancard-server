@@ -58,4 +58,4 @@ revocation does not remove data or keys the device already holds.
 The QR code is a bearer secret for the whole vault, indefinitely: the code part expires, the key part
 does not. Anyone who later obtains a photo of it can decrypt any ciphertext of that vault they can
 reach, until the items are moved to a new vault. The UI requires fresh password entry, shows a warning, expires the code, and closes the
-dialog on demand. See [THREAT_MODEL.md](../../THREAT_MODEL.md#28-lost-pairing-qr-code--limited-exposure).
+dialog on demand. See [THREAT_MODEL.md](../../THREAT_MODEL.md#28-exposed-pairing-qr-code--long-lived-key-exposure).

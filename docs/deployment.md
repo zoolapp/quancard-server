@@ -10,7 +10,7 @@ unless the request comes from `localhost` with the explicit development flag.
   household; Argon2id runs in the browser, not on the server).
 - A domain name whose DNS A/AAAA record points to the host, with ports **80 and 443** reachable
   (Let's Encrypt validation and HTTP→HTTPS redirect).
-- No other service bound to 80/443, or use [your own reverse proxy](#behind-your-own-reverse-proxy).
+- No other service bound to 80/443, or use [your own reverse proxy](#option-b--behind-your-own-reverse-proxy).
 
 ## Option A — bundled Caddy (recommended)
 
@@ -42,7 +42,7 @@ Prefer not to build locally? `docker compose pull` uses the published image; set
 `~/quancard`, runs `init-env.sh` and starts the stack. Read it before running it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/v0.1.0/scripts/install.sh -o install.sh
 less install.sh
 sh install.sh vault.example.com
 ```
@@ -96,8 +96,9 @@ docker compose -f compose.local.yaml up -d
 open http://localhost:8080
 ```
 
-Binds only to `127.0.0.1`. Browsers treat `http://localhost` as a secure context. Do not use this
-for real data on a shared machine.
+Binds only to `127.0.0.1`. Browsers treat `http://localhost` as a secure context. Use Chrome, Edge or
+Firefox for the local trial: the session cookie is always `Secure`, and Safari may refuse it over plain
+`http://localhost`. Do not use this for real data on a shared machine.
 
 ## Configuration reference
 

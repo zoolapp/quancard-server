@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { base64, base64url, bytesEqual, ProtocolError, parseUpperUUID, sha256, utf8 } from "./bytes.js";
 import { type EncryptedEnvelope, importAESKey, openEnvelope, parseEnvelope, type SealRandomness, sealEnvelope, serializeEnvelope } from "./envelope.js";
 import { decodePayloadStrict, type VaultPayload } from "./payload.js";

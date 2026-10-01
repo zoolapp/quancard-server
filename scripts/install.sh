@@ -1,12 +1,13 @@
 #!/usr/bin/env sh
 # One-step install on a fresh Linux host with Docker:
-#   curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/main/scripts/install.sh -o install.sh
+#   curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/v0.1.0/scripts/install.sh -o install.sh
 #   less install.sh            # read it first — this is a security product
 #   sh install.sh vault.example.com
 set -eu
 DOMAIN="${1:-}"
 DIR="${QC_INSTALL_DIR:-$HOME/quancard}"
-REF="${QC_REF:-main}"
+# Pin a release tag by default; set QC_REF=main only to try unreleased code.
+REF="${QC_REF:-v0.1.0}"
 BASE="https://raw.githubusercontent.com/zoolapp/quancard-server/${REF}"
 
 [ -n "$DOMAIN" ] || { echo "usage: sh install.sh <domain>" >&2; exit 64; }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { base64, buf, concat, ProtocolError, parseUpperUUID, randomBytes, utf8 } from "./bytes.js";
 import { asInteger, asObject, asString, parseStrictJSON } from "./strict-json.js";
 

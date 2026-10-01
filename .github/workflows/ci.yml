@@ -39,6 +39,11 @@ jobs:
           grep -oE '`[0-9a-f]{64}`' SOURCES.md | tr -d '`' > expected.txt
           sha256sum sync-v1.json qvault-v1.json qvault-payload-v2.json | cut -d' ' -f1 > actual.txt
           diff expected.txt actual.txt
+      - name: Web-produced vector is reproducible and passes an independent verifier
+        run: |
+          node tools/make-web-vector.mjs --check
+          python3 -m pip install --quiet cryptography
+          python3 tools/verify_web_vector.py vectors/web/revision-v1.json
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: End-to-end story

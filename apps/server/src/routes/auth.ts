@@ -385,6 +385,8 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
       ctx.db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
       ctx.db.prepare("DELETE FROM audit_events WHERE user_id = ?").run(user.id);
     });
+    // Kept without a user reference so the operator can see that a deletion happened, not by whom.
+    ctx.audit("account.deleted", null, request);
     ctx.clearSessionCookie(reply);
     return reply.code(204).send();
   });

@@ -3,6 +3,9 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /
@@ -10,3 +13,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      # Track the Node.js LTS line; major upgrades are deliberate.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

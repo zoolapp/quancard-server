@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { base64url, bytesEqual, ProtocolError, parseLowerUUID, sha256, utf8 } from "./bytes.js";
 import {
   asArray,

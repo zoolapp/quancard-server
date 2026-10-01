@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Byte helpers shared by Node and browsers. Every decoder here is canonical:
  * input that does not re-encode to exactly the same text is rejected, so two

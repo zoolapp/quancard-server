@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { fromUTF8, ProtocolError } from "./bytes.js";
 
 /**
