@@ -1,0 +1,2228 @@
+openapi: 3.1.0
+info:
+  title: QuanCard Server API
+  version: 1.0.0
+  license:
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
+  description: 'HTTP API implemented by the server. All JSON request objects described here reject unknown properties.
+    Routes without a requestBody do not inspect a parsed body. Binary revision uploads contain an opaque sync-v1
+    envelope JSON object, not a JSON API wrapper. Base64 fields use the standard padded alphabet. Timestamps are
+    Unix seconds.
+
+
+    API requests require HTTPS and a Host matching the configured public origin, with an explicitly configured localhost
+    development exception. GET /healthz bypasses these checks. Non-Bearer API writes require Origin matching the
+    allowed origin and X-QuanCard-Client: web, including unauthenticated setup and login; /api/v1/pairings/claim
+    is exempt. The Bearer-prefix exemption is a transport guard and does not grant authentication or access.
+
+
+    Session cookies are host-only, Secure, HttpOnly and SameSite=Strict. Device bearer tokens begin with qcd_ and
+    can only access manifest and revisions of their paired vault. A recognized qcd_ bearer credential takes precedence
+    over a session cookie. API responses use Cache-Control: no-store. Errors use Error and HTTP 429 also includes
+    Retry-After. HEAD counterparts are automatically exposed and return no body.
+
+
+    When webRoot is configured, the server additionally serves deployment-dependent static files and returns its
+    HTML index for unmatched non-API GET/HEAD requests when that index exists. Those asset paths are not fixed API
+    endpoints. Unmatched API requests, and unmatched requests without an applicable web fallback, return 404 with
+    error notFound after transport checks. Insecure non-API requests other than GET /healthz return a plain-text
+    426 response.'
+servers:
+- url: https://vault.example.com
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Check server liveness
+      description: Unauthenticated GET health check. Bypasses HTTPS, Host and Origin checks, including direct container
+        health checks.
+      security: []
+      responses:
+        '200':
+          description: Server is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - ok
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headGetHealth
+      summary: 'Get headers: Check server liveness'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies. Only GET /healthz bypasses transport and Host checks.
+      security: []
+      responses:
+        '200':
+          description: Server is alive. HEAD responses have no body.
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin. No response body.'
+        '426':
+          description: HTTPS required. Unlike GET /healthz, HEAD is not exempt; the underlying non-API error representation
+            is plain text, not the JSON Error schema. No response body.
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/status:
+    get:
+      operationId: getStatus
+      summary: Get server and setup status
+      description: Public service metadata; no session required.
+      security: []
+      responses:
+        '200':
+          description: Current server status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - service
+                - version
+                - setupRequired
+                - setupEnabled
+                - protocol
+                properties:
+                  service:
+                    type: string
+                    const: quancard-server
+                  version:
+                    type: string
+                    description: Configured server build version.
+                  setupRequired:
+                    type: boolean
+                  setupEnabled:
+                    type: boolean
+                  protocol:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - auth
+                    - sync
+                    - envelope
+                    properties:
+                      auth:
+                        type: integer
+                        const: 1
+                      sync:
+                        type: integer
+                        const: 1
+                      envelope:
+                        type: integer
+                        const: 1
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headGetStatus
+      summary: 'Get headers: Get server and setup status'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security: []
+      responses:
+        '200':
+          description: Current server status. HEAD responses have no body.
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/setup:
+    post:
+      operationId: setupOwner
+      summary: Create the initial owner
+      description: Available only with a configured setup token and an empty user database. Limited to 10 attempts
+        per minute per client.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupRequest'
+      responses:
+        '201':
+          description: Owner created; session issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          headers:
+            Set-Cookie:
+              description: Sets __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict, no Domain,
+                and the configured absolute-session Max-Age.
+              schema:
+                type: string
+        '400':
+          description: 'badRequest: malformed or unknown fields, invalid UUID/Base64 or account-key envelope. invalidUsername:
+            invalid normalized username.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'setupClosed: setup token is disabled or any user already exists; invalidSetupToken: incorrect
+            setup token; crossOriginRejected: browser write headers failed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'usernameTaken: username already exists.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/invites:
+    post:
+      operationId: createInvite
+      summary: Create a registration invite
+      description: Owner session required. No request body is required or inspected; a parsed body is ignored.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      responses:
+        '201':
+          description: Single-use invite created; expires after 7 days.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeWithExpiry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'forbidden: only the owner may create invites; crossOriginRejected: browser write headers
+            failed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/register:
+    post:
+      operationId: registerAccount
+      summary: Register using an invite
+      description: Creates a non-owner account with a single-use invite. Limited to 10 attempts per minute per client.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created, invite consumed and session issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          headers:
+            Set-Cookie:
+              description: Sets __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict, no Domain,
+                and the configured absolute-session Max-Age.
+              schema:
+                type: string
+        '400':
+          description: 'badRequest: malformed or unknown fields, invalid UUID/Base64 or account-key envelope. invalidUsername:
+            invalid normalized username.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 'invalidInvite: unknown, used or expired invite; crossOriginRejected: browser write headers
+            failed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'usernameTaken: username already exists.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/auth/prelogin:
+    post:
+      operationId: prelogin
+      summary: Get account KDF parameters
+      description: Unknown usernames receive a stable decoy salt without revealing account existence. Limited to
+        10 attempts per minute per client.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreloginRequest'
+      responses:
+        '200':
+          description: KDF parameters with the real or a stable decoy salt.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - kdf
+                properties:
+                  kdf:
+                    $ref: '#/components/schemas/Kdf'
+        '400':
+          description: 'badRequest: malformed or unknown fields; invalidUsername: invalid normalized username.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Authenticate and create a browser session
+      description: The password remains client-side. Supply its derived authentication key and a second factor when
+        TOTP is enabled. A string totp takes precedence over recoveryCode; factors are ignored when TOTP is disabled.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated account; session issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          headers:
+            Set-Cookie:
+              description: Sets __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict, no Domain,
+                and the configured absolute-session Max-Age.
+              schema:
+                type: string
+        '400':
+          description: 'badRequest: malformed or unknown fields or invalid authentication-key Base64; invalidUsername:
+            invalid normalized username.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 'invalidCredentials: incorrect authentication key; secondFactorRequired: enabled TOTP requires
+            a factor; invalidSecondFactor: invalid or replayed TOTP, or invalid/used recovery code.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          description: 'rateLimited: more than 10 login attempts per minute per client; accountLocked: account locked
+            for 15 minutes after 10 failed authentication-key checks. The tenth failure still returns invalidCredentials;
+            subsequent attempts during the lock return accountLocked.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              description: Seconds until another attempt is allowed; also returned as retryAfterSeconds.
+              schema:
+                type: integer
+                minimum: 1
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: End the current browser session
+      description: Succeeds without valid credentials. A device token is not revoked. No request body is required
+        or inspected.
+      security:
+      - {}
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      responses:
+        '204':
+          description: Session revoked if present and cookie cleared; no response body.
+          headers:
+            Set-Cookie:
+              description: Clears __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account:
+    get:
+      operationId: getAccount
+      summary: Get the signed-in account
+      description: Requires a browser session; device tokens are not accepted.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Current account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    delete:
+      operationId: deleteAccount
+      summary: Delete the signed-in account
+      description: Requires fresh authentication and username confirmation. Related records are removed by database
+        cascades. Owner deletion is blocked while members remain. Unexpected database failures return internal.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteAccountRequest'
+      responses:
+        '204':
+          description: Account deleted and cookie cleared; no response body.
+          headers:
+            Set-Cookie:
+              description: Clears __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict.
+              schema:
+                type: string
+        '400':
+          description: 'badRequest: malformed fields or Base64; confirmationMismatch: confirmation does not match
+            the stored username after normalization.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 'unauthorized: a valid session is required. invalidCredentials: the supplied authentication
+            key is incorrect.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '409':
+          description: 'ownerHasMembers: the owner cannot delete the account while other users exist.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headGetAccount
+      summary: 'Get headers: Get the signed-in account'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Current account. HEAD responses have no body.
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/account/password:
+    post:
+      operationId: changePassword
+      summary: Change credentials and rewrap the account key
+      description: Verifies currentAuthKey, replaces the salt, authentication key and wrapped account key, revokes
+        every session, then issues a new session to this browser. The wrapped envelope must remain bound to this
+        accountID.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '200':
+          description: Updated account and replacement session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+          headers:
+            Set-Cookie:
+              description: Sets __Host-qc_session with Path=/, HttpOnly, Secure and SameSite=Strict, no Domain,
+                and the configured absolute-session Max-Age.
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: a valid session is required. invalidCredentials: the supplied authentication
+            key is incorrect.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account/totp/setup:
+    post:
+      operationId: setupTotp
+      summary: Prepare TOTP enrollment
+      description: Requires fresh authentication. Creates or replaces the pending TOTP secret without enabling it.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreshAuthRequest'
+      responses:
+        '200':
+          description: Pending authenticator setup URI.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - otpauthURI
+                properties:
+                  otpauthURI:
+                    type: string
+                    format: uri
+                    description: otpauth:// URI with issuer QuanCard, SHA1, six digits and a 30-second period.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: a valid session is required. invalidCredentials: the supplied authentication
+            key is incorrect.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '409':
+          description: 'totpAlreadyEnabled: TOTP is already enabled.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account/totp/enable:
+    post:
+      operationId: enableTotp
+      summary: Confirm TOTP enrollment
+      description: Requires a session and a code for the pending secret. Accepts one 30-second step of clock skew
+        in either direction. The accepted step is recorded to reject later login replay. Limited to 10 attempts
+        per minute per account.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpEnableRequest'
+      responses:
+        '200':
+          description: TOTP enabled; save these ten single-use recovery codes.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - recoveryCodes
+                properties:
+                  recoveryCodes:
+                    type: array
+                    items:
+                      type: string
+                      pattern: ^[A-Z2-7]{4}(-[A-Z2-7]{4}){3}$
+                    minItems: 10
+                    maxItems: 10
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: valid session required; invalidSecondFactor: code does not validate against
+            the pending secret.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '409':
+          description: 'totpNotPending: no pending secret exists, or TOTP is already enabled.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account/totp/disable:
+    post:
+      operationId: disableTotp
+      summary: Disable TOTP and clear recovery codes
+      description: Requires fresh authentication and a valid second factor if TOTP is enabled. Clears enabled and
+        pending TOTP secrets and recovery codes. Succeeds with fresh authentication alone if TOTP is already disabled.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpDisableRequest'
+      responses:
+        '200':
+          description: TOTP disabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - totpEnabled
+                properties:
+                  totpEnabled:
+                    type: boolean
+                    const: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: valid session required; invalidCredentials: incorrect authentication key;
+            secondFactorRequired: enabled TOTP requires a factor; invalidSecondFactor: invalid or replayed TOTP,
+            or invalid/used recovery code.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account/sessions:
+    get:
+      operationId: listSessions
+      summary: List browser sessions
+      description: Lists this account's stored sessions and marks the current session. This listing does not prune
+        all expired session rows.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Stored sessions ordered by lastSeenAt descending.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - sessions
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headListSessions
+      summary: 'Get headers: List browser sessions'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Stored sessions ordered by lastSeenAt descending. HEAD responses have no body.
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/account/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      summary: Revoke other browser sessions
+      description: Keeps the current session and revokes all other stored sessions for the account. No fresh authentication
+        or request body is required; a parsed body is ignored.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      responses:
+        '200':
+          description: Other sessions revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - revoked
+                properties:
+                  revoked:
+                    type: integer
+                    minimum: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/account/audit:
+    get:
+      operationId: listAuditEvents
+      summary: List recent account audit events
+      description: Returns this account's most recent audit events. No pagination parameters are implemented.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: At most 200 events ordered by id descending.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - events
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEvent'
+                    maxItems: 200
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headListAuditEvents
+      summary: 'Get headers: List recent account audit events'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: At most 200 events ordered by id descending. HEAD responses have no body.
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/vaults:
+    get:
+      operationId: listVaults
+      summary: List the account's vaults
+      description: Requires a session. A device token cannot list vaults or retrieve wrapped vault keys through
+        this endpoint.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Vaults ordered by creation time.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - vaults
+                properties:
+                  vaults:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vault'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    post:
+      operationId: createVault
+      summary: Create a vault
+      description: 'JSON request limit: 64 KiB. Validates the outer manifest and wrapped-key envelopes. An identical
+        retry returns 200, otherwise creation returns 201. The account vault quota is checked before idempotency,
+        so a retry at capacity returns 507.'
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVaultRequest'
+      responses:
+        '200':
+          description: Identical existing vault creation acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vault'
+        '201':
+          description: Vault created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vault'
+        '400':
+          description: 'badRequest: malformed fields, UUID or Base64; invalidEnvelope: manifest/key envelope malformed,
+            oversized or bound to the wrong kind or vaultID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '409':
+          description: 'vaultExists: vaultID already exists with a different owner, manifest or wrapped key.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '507':
+          description: 'capacity: the account already has the configured maximum number of vaults.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    head:
+      operationId: headListVaults
+      summary: 'Get headers: List the account''s vaults'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Vaults ordered by creation time. HEAD responses have no body.
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/vaults/{vaultID}:
+    delete:
+      operationId: deleteVault
+      summary: Delete a vault
+      description: Requires the owning account's session and fresh authentication. Removes the vault, revisions, pairings
+        and paired devices.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreshAuthRequest'
+      responses:
+        '204':
+          description: Vault and dependent records deleted; no response body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: a valid session is required. invalidCredentials: the supplied authentication
+            key is incorrect.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+    parameters:
+    - $ref: '#/components/parameters/vaultID'
+  /api/v1/vaults/{vaultID}/manifest:
+    get:
+      operationId: getManifest
+      summary: Download the vault manifest
+      description: Accepts the owning account's session or a device token scoped to this vault. An out-of-scope
+        vault returns notFound.
+      security:
+      - session: []
+      - device: []
+      responses:
+        '200':
+          description: Stored opaque sync-v1 manifest envelope JSON bytes; not Base64.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                maxLength: 8192
+                description: Raw envelope JSON bytes, objectKind syncManifest.v1, recordID equal to vaultID.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    parameters:
+    - $ref: '#/components/parameters/vaultID'
+    head:
+      operationId: headGetManifest
+      summary: 'Get headers: Download the vault manifest'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      - device: []
+      responses:
+        '200':
+          description: Stored opaque sync-v1 manifest envelope JSON bytes; not Base64. HEAD responses have no body.
+        '400':
+          description: 'badRequest: malformed request, invalid field type or value, unknown JSON body property,
+            invalid UUID or request parsing error. HEAD responses have no body.'
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '404':
+          description: 'notFound: resource does not exist, belongs to another account, or is outside the device
+            token''s vault. HEAD responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/vaults/{vaultID}/revisions:
+    get:
+      operationId: listRevisions
+      summary: Page through stored revisions
+      description: Accepts the owning account's session or a device token scoped to this vault. Returns sequences
+        strictly greater than after, in ascending order. A page holds at most 500 revisions and 24 MiB of decoded
+        envelope bytes; the first record is always included if present. Unknown query parameters are ignored.
+      security:
+      - session: []
+      - device: []
+      parameters:
+      - name: after
+        in: query
+        description: Exclusive sequence cursor. Converted with Number and must be a non-negative safe integer.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          default: 0
+      - name: limit
+        in: query
+        description: Requested page size, default 500. Converted with Number and capped at 500 before positive-safe-integer
+          validation; values above 500 are accepted and capped.
+        schema:
+          type: integer
+          minimum: 1
+          default: 500
+      responses:
+        '200':
+          description: Ascending sequence page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    parameters:
+    - $ref: '#/components/parameters/vaultID'
+    head:
+      operationId: headListRevisions
+      summary: 'Get headers: Page through stored revisions'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      - device: []
+      parameters:
+      - name: after
+        in: query
+        description: Exclusive sequence cursor. Converted with Number and must be a non-negative safe integer.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          default: 0
+      - name: limit
+        in: query
+        description: Requested page size, default 500. Converted with Number and capped at 500 before positive-safe-integer
+          validation; values above 500 are accepted and capped.
+        schema:
+          type: integer
+          minimum: 1
+          default: 500
+      responses:
+        '200':
+          description: Ascending sequence page. HEAD responses have no body.
+        '400':
+          description: 'badRequest: malformed request, invalid field type or value, unknown JSON body property,
+            invalid UUID or request parsing error. HEAD responses have no body.'
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '404':
+          description: 'notFound: resource does not exist, belongs to another account, or is outside the device
+            token''s vault. HEAD responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/vaults/{vaultID}/revisions/{revisionID}:
+    put:
+      operationId: putRevision
+      summary: Store an immutable revision
+      description: 'Upload raw opaque sync-v1 envelope JSON bytes, at most 16 MiB (16777216 bytes). Content-Type
+        must be application/octet-stream. The server validates only the outer envelope: objectKind syncRevision.v1
+        and recordID equal to revisionID. Encrypted vault identity and revision contents cannot be inspected by
+        the server. Identical bytes are idempotent and are acknowledged before quota checks. Device tokens may upload
+        only to their paired vault; Bearer requests are exempt from browser-write headers.'
+      security:
+      - session: []
+      - device: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      responses:
+        '200':
+          description: Identical retry acknowledged with the original sequence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionReceipt'
+        '201':
+          description: Revision stored with a new sequence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionReceipt'
+        '400':
+          description: 'badRequest: invalid path UUID or request parsing failure; invalidEnvelope: malformed envelope,
+            wrong objectKind or recordID, or oversized envelope detected during envelope validation.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 'revisionConflict: this revisionID already has different bytes in the vault.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+        '507':
+          description: 'capacity: adding this revision would exceed the configured per-vault revision count or total-byte
+            quota.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        description: Opaque sync-v1 envelope JSON bytes; maximum 16 MiB. Send the bytes directly, without an outer
+          JSON wrapper or Base64 encoding.
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 16777216
+              contentMediaType: application/json
+              contentSchema:
+                $ref: '#/components/schemas/RevisionEnvelope'
+              description: Raw UTF-8 envelope JSON bytes. The decoded JSON object has exactly the properties in
+                RevisionEnvelope.
+    parameters:
+    - $ref: '#/components/parameters/vaultID'
+    - $ref: '#/components/parameters/revisionID'
+  /api/v1/vaults/{vaultID}/pairings:
+    post:
+      operationId: createPairing
+      summary: Create a device pairing code
+      description: Requires the owning account's session and fresh authentication. The browser adds the vault key
+        to its QR code; this endpoint never returns that key.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreshAuthRequest'
+      responses:
+        '201':
+          description: Single-use 32-character URL-safe code created; expires after 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeWithExpiry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 'unauthorized: a valid session is required. invalidCredentials: the supplied authentication
+            key is incorrect.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+    parameters:
+    - $ref: '#/components/parameters/vaultID'
+  /api/v1/pairings/claim:
+    post:
+      operationId: claimPairing
+      summary: Exchange a pairing code for a device token
+      description: Native endpoint exempt from Origin and X-QuanCard-Client checks even without Bearer credentials.
+        Limited to 10 attempts per minute per client. The returned token can only access manifest and revision endpoints
+        of the paired vault.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimPairingRequest'
+      responses:
+        '201':
+          description: Pairing consumed and device credential issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - deviceID
+                - vaultID
+                - deviceToken
+                properties:
+                  deviceID:
+                    $ref: '#/components/schemas/UUID'
+                  vaultID:
+                    $ref: '#/components/schemas/UUID'
+                  deviceToken:
+                    type: string
+                    pattern: ^qcd_[A-Za-z0-9_-]{43}$
+                    description: Bearer credential, returned only upon claim.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          description: 'pairingInvalid: code is missing, malformed, unknown, expired or already claimed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/Internal'
+  /api/v1/devices:
+    get:
+      operationId: listDevices
+      summary: List paired devices
+      description: Requires a session. Returns device metadata, never stored device credentials.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Devices ordered by creation time.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - devices
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    head:
+      operationId: headListDevices
+      summary: 'Get headers: List paired devices'
+      description: Automatically exposed by Fastify for this GET route. Uses the same handler and authentication,
+        but suppresses response bodies, including Error bodies.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: Devices ordered by creation time. HEAD responses have no body.
+        '401':
+          description: 'unauthorized: no valid session, or a device token used on a session-only endpoint. HEAD
+            responses have no body.'
+        '421':
+          description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+            development requests). HEAD responses have no body.'
+        '426':
+          description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.
+            HEAD responses have no body.'
+          headers:
+            Connection:
+              schema:
+                type: string
+                const: close
+              description: The server closes the insecure connection.
+        '500':
+          description: 'internal: unexpected server failure. HEAD responses have no body.'
+  /api/v1/devices/{deviceID}:
+    delete:
+      operationId: revokeDevice
+      summary: Revoke a paired device
+      description: Requires a session for the device's account. No fresh authentication or request body is required;
+        a parsed body is ignored.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/WebClient'
+      responses:
+        '204':
+          description: Device deleted; its bearer token immediately stops authenticating. No response body.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CrossOriginRejected'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '421':
+          $ref: '#/components/responses/MisdirectedRequest'
+        '426':
+          $ref: '#/components/responses/HttpsRequired'
+        '500':
+          $ref: '#/components/responses/Internal'
+    parameters:
+    - $ref: '#/components/parameters/deviceID'
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: __Host-qc_session
+      description: Browser session cookie. Device tokens cannot substitute for a session on account, vault-management
+        or device-management endpoints.
+    device:
+      type: http
+      scheme: bearer
+      bearerFormat: qcd_<opaque token>
+      description: Opaque device token issued by pairing claim. Only accepts manifest GET/HEAD, revisions GET/HEAD
+        and revision PUT for its single paired vault.
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: false
+      description: Required for browser/API writes without an Authorization header beginning with Bearer, except
+        /api/v1/pairings/claim. Must equal the configured public origin; explicitly enabled localhost development
+        must match the request host. Conditional requirement cannot be expressed by required alone.
+      schema:
+        type: string
+      example: https://vault.example.com
+    WebClient:
+      name: X-QuanCard-Client
+      in: header
+      required: false
+      description: Required with value web for writes subject to the Origin check. Bearer requests and /api/v1/pairings/claim
+        are exempt.
+      schema:
+        type: string
+        const: web
+    vaultID:
+      name: vaultID
+      in: path
+      required: true
+      description: Uppercase canonical UUID v4.
+      schema:
+        $ref: '#/components/schemas/UUID'
+    revisionID:
+      name: revisionID
+      in: path
+      required: true
+      description: Uppercase canonical UUID v4.
+      schema:
+        $ref: '#/components/schemas/UUID'
+    deviceID:
+      name: deviceID
+      in: path
+      required: true
+      description: Uppercase canonical UUID v4.
+      schema:
+        $ref: '#/components/schemas/UUID'
+  responses:
+    BadRequest:
+      description: 'badRequest: malformed request, invalid field type or value, unknown JSON body property, invalid
+        UUID or request parsing error.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: 'unauthorized: no valid session, or a device token used on a session-only endpoint.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    CrossOriginRejected:
+      description: 'crossOriginRejected: a non-Bearer API write lacks an allowed Origin or X-QuanCard-Client: web.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 'notFound: resource does not exist, belongs to another account, or is outside the device token''s
+        vault.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PayloadTooLarge:
+      description: 'payloadTooLarge: the request exceeds the applicable body limit. JSON bodies default to 1 MiB;
+        vault creation allows 64 KiB and revision uploads allow 16 MiB. Even endpoints that ignore bodies can fail
+        while parsing a supplied body.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnsupportedMediaType:
+      description: 'unsupportedMediaType: missing, malformed or unsupported Content-Type for a supplied body; revision
+        uploads require application/octet-stream.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    MisdirectedRequest:
+      description: 'misdirectedRequest: Host does not match the configured public origin (except permitted local
+        development requests).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    HttpsRequired:
+      description: 'httpsRequired: HTTPS is required; only explicitly enabled localhost development is exempt.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      headers:
+        Connection:
+          schema:
+            type: string
+            const: close
+          description: The server closes the insecure connection.
+    RateLimited:
+      description: 'rateLimited: more than 10 attempts in a 60-second window for the applicable client or account
+        bucket.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      headers:
+        Retry-After:
+          description: Seconds until another attempt is allowed; also returned as retryAfterSeconds.
+          schema:
+            type: integer
+            minimum: 1
+    Internal:
+      description: 'internal: unexpected server failure.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code; possible codes are listed for each response.
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          description: Present for rateLimited and accountLocked responses; seconds to wait.
+    UUID:
+      type: string
+      pattern: ^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$
+      description: Uppercase canonical UUID version 4.
+    Timestamp:
+      type: integer
+      description: Unix timestamp in seconds.
+    Username:
+      type: string
+      description: NFC-normalized and trimmed before validation. The normalized value must contain 3 to 64 Unicode
+        letters or numbers, or the characters . _ @ + -. Invalid syntax returns invalidUsername; a non-string returns
+        badRequest.
+    AuthKey:
+      type: string
+      contentEncoding: base64
+      description: Standard padded Base64 (RFC 4648 standard alphabet). Exactly 32 decoded bytes. Derived authentication
+        key, never the plaintext password.
+      minLength: 44
+      maxLength: 44
+    KdfSalt:
+      type: string
+      contentEncoding: base64
+      description: Standard padded Base64 (RFC 4648 standard alphabet). Exactly 16 decoded bytes.
+      minLength: 24
+      maxLength: 24
+    WrappedAccountKey:
+      type: string
+      contentEncoding: base64
+      description: Standard padded Base64 (RFC 4648 standard alphabet). Serialized envelope JSON, at most 4096 decoded
+        bytes. objectKind must be accountKey.v1 and recordID must match the accountID.
+      maxLength: 5464
+    WrappedVaultKey:
+      type: string
+      contentEncoding: base64
+      description: Standard padded Base64 (RFC 4648 standard alphabet). Serialized envelope JSON, at most 4096 decoded
+        bytes. objectKind must be vaultKey.v1 and recordID must match the vaultID.
+      maxLength: 5464
+    ManifestBase64:
+      type: string
+      contentEncoding: base64
+      description: Standard padded Base64 (RFC 4648 standard alphabet). Serialized sync-v1 manifest envelope JSON,
+        at most 8192 decoded bytes. objectKind must be syncManifest.v1 and recordID must match the vaultID.
+      maxLength: 10924
+    Kdf:
+      type: object
+      additionalProperties: false
+      required:
+      - algorithm
+      - memoryKiB
+      - iterations
+      - parallelism
+      - outputBytes
+      - normalization
+      - salt
+      properties:
+        algorithm:
+          type: string
+          const: argon2id-1.3
+        memoryKiB:
+          type: integer
+          const: 65536
+        iterations:
+          type: integer
+          const: 3
+        parallelism:
+          type: integer
+          const: 1
+        outputBytes:
+          type: integer
+          const: 32
+        normalization:
+          type: string
+          const: NFC
+        salt:
+          $ref: '#/components/schemas/KdfSalt'
+    Account:
+      type: object
+      additionalProperties: false
+      required:
+      - accountID
+      - username
+      - isOwner
+      - kdf
+      - wrappedAccountKey
+      - totpEnabled
+      - recoveryCodesRemaining
+      - createdAt
+      - passwordChangedAt
+      - signupsOpen
+      properties:
+        accountID:
+          $ref: '#/components/schemas/UUID'
+        username:
+          type: string
+        isOwner:
+          type: boolean
+        kdf:
+          $ref: '#/components/schemas/Kdf'
+        wrappedAccountKey:
+          $ref: '#/components/schemas/WrappedAccountKey'
+        totpEnabled:
+          type: boolean
+        recoveryCodesRemaining:
+          type: integer
+          minimum: 0
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        passwordChangedAt:
+          $ref: '#/components/schemas/Timestamp'
+        signupsOpen:
+          type: boolean
+          description: True only when a setup token is configured and there are no users. This is false in successful
+            account responses.
+    SetupRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - setupToken
+      - username
+      - accountID
+      - kdfSalt
+      - authKey
+      - wrappedAccountKey
+      properties:
+        setupToken:
+          type: string
+          minLength: 1
+          maxLength: 256
+        username:
+          $ref: '#/components/schemas/Username'
+        accountID:
+          $ref: '#/components/schemas/UUID'
+        kdfSalt:
+          $ref: '#/components/schemas/KdfSalt'
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        wrappedAccountKey:
+          $ref: '#/components/schemas/WrappedAccountKey'
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - inviteCode
+      - username
+      - accountID
+      - kdfSalt
+      - authKey
+      - wrappedAccountKey
+      properties:
+        inviteCode:
+          type: string
+          minLength: 1
+          maxLength: 64
+        username:
+          $ref: '#/components/schemas/Username'
+        accountID:
+          $ref: '#/components/schemas/UUID'
+        kdfSalt:
+          $ref: '#/components/schemas/KdfSalt'
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        wrappedAccountKey:
+          $ref: '#/components/schemas/WrappedAccountKey'
+    PreloginRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - username
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - username
+      - authKey
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        totp:
+          type: string
+          description: Six-digit TOTP. When TOTP is enabled, a string here takes precedence over recoveryCode. Factors
+            are ignored when TOTP is disabled; non-string values are treated as absent.
+        recoveryCode:
+          type: string
+          description: Single-use recovery code; normalized to uppercase with characters outside A-Z and 2-7 removed.
+            Used only when totp is not a string.
+    PasswordRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - currentAuthKey
+      - kdfSalt
+      - authKey
+      - wrappedAccountKey
+      properties:
+        currentAuthKey:
+          $ref: '#/components/schemas/AuthKey'
+        kdfSalt:
+          $ref: '#/components/schemas/KdfSalt'
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        wrappedAccountKey:
+          $ref: '#/components/schemas/WrappedAccountKey'
+    FreshAuthRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - authKey
+      properties:
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+    TotpEnableRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 6
+          description: A valid six-digit TOTP is required for success. Empty, non-string or overlong values return
+            badRequest; other invalid codes return invalidSecondFactor.
+    TotpDisableRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - authKey
+      properties:
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        totp:
+          type: string
+          description: Six-digit TOTP. When TOTP is enabled, a string here takes precedence over recoveryCode. Factors
+            are ignored when TOTP is disabled; non-string values are treated as absent.
+        recoveryCode:
+          type: string
+          description: Single-use recovery code; normalized to uppercase with characters outside A-Z and 2-7 removed.
+            Used only when totp is not a string.
+    DeleteAccountRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - authKey
+      - confirm
+      properties:
+        authKey:
+          $ref: '#/components/schemas/AuthKey'
+        confirm:
+          type: string
+          maxLength: 64
+          description: Must match the stored username after removing ASCII control characters and trimming whitespace.
+            Missing or null confirmation also returns confirmationMismatch.
+    CreateVaultRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - vaultID
+      - manifest
+      - wrappedKey
+      properties:
+        vaultID:
+          $ref: '#/components/schemas/UUID'
+        manifest:
+          $ref: '#/components/schemas/ManifestBase64'
+        wrappedKey:
+          $ref: '#/components/schemas/WrappedVaultKey'
+    ClaimPairingRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{32}$
+          description: Single-use pairing code. Missing, malformed, expired, used or unknown codes return pairingInvalid.
+        deviceName:
+          type:
+          - string
+          - 'null'
+          maxLength: 64
+          description: ASCII control characters are removed and whitespace trimmed. Defaults to iPhone when omitted,
+            null or empty after normalization.
+    Vault:
+      type: object
+      additionalProperties: false
+      required:
+      - vaultID
+      - wrappedKey
+      - createdAt
+      - modifiedAt
+      - revisionCount
+      - totalBytes
+      - lastSeq
+      - quota
+      properties:
+        vaultID:
+          $ref: '#/components/schemas/UUID'
+        wrappedKey:
+          $ref: '#/components/schemas/WrappedVaultKey'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        modifiedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revisionCount:
+          type: integer
+          minimum: 0
+        totalBytes:
+          type: integer
+          minimum: 0
+          description: Total stored revision envelope bytes.
+        lastSeq:
+          type: integer
+          minimum: 0
+        quota:
+          type: object
+          additionalProperties: false
+          required:
+          - revisionCount
+          - totalBytes
+          properties:
+            revisionCount:
+              type: integer
+            totalBytes:
+              type: integer
+    RevisionEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - formatVersion
+      - recordID
+      - objectKind
+      - wrappedDEK
+      - payload
+      properties:
+        formatVersion:
+          type: integer
+          const: 1
+        recordID:
+          $ref: '#/components/schemas/UUID'
+        objectKind:
+          type: string
+          const: syncRevision.v1
+        wrappedDEK:
+          type: string
+          contentEncoding: base64
+          description: 'Standard padded Base64 (RFC 4648 standard alphabet). Exactly 60 decoded bytes: nonce, encrypted
+            DEK and authentication tag.'
+          minLength: 80
+          maxLength: 80
+        payload:
+          type: string
+          contentEncoding: base64
+          description: 'Standard padded Base64 (RFC 4648 standard alphabet). At least 28 decoded bytes: nonce, encrypted
+            payload and authentication tag.'
+          minLength: 40
+      description: Outer JSON structure only. recordID must equal the revisionID path parameter. Unknown and duplicate
+        JSON keys are rejected. Encrypted contents remain opaque to the server.
+    RevisionReceipt:
+      type: object
+      additionalProperties: false
+      required:
+      - revisionID
+      - seq
+      properties:
+        revisionID:
+          $ref: '#/components/schemas/UUID'
+        seq:
+          type: integer
+          minimum: 1
+    RevisionPage:
+      type: object
+      additionalProperties: false
+      required:
+      - revisions
+      - nextAfter
+      - hasMore
+      - lastSeq
+      - modifiedAt
+      properties:
+        revisions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - revisionID
+            - seq
+            - createdAt
+            - body
+            properties:
+              revisionID:
+                $ref: '#/components/schemas/UUID'
+              seq:
+                type: integer
+                minimum: 1
+              createdAt:
+                $ref: '#/components/schemas/Timestamp'
+              body:
+                type: string
+                contentEncoding: base64
+                description: Standard padded Base64 (RFC 4648 standard alphabet). Stored sync-v1 revision envelope
+                  JSON bytes.
+          maxItems: 500
+        nextAfter:
+          type: integer
+          minimum: 0
+          description: Last sequence in this page, or the requested after value if empty.
+        hasMore:
+          type: boolean
+        lastSeq:
+          type: integer
+          minimum: 0
+          description: Current highest sequence in the vault.
+        modifiedAt:
+          $ref: '#/components/schemas/Timestamp'
+    CodeWithExpiry:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - expiresAt
+      properties:
+        code:
+          type: string
+          description: Opaque URL-safe token; use as returned.
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - current
+      - createdAt
+      - lastSeenAt
+      - expiresAt
+      - client
+      properties:
+        id:
+          type: string
+          description: Opaque public session identifier, not a UUID or session cookie.
+        current:
+          type: boolean
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        lastSeenAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        client:
+          type:
+          - string
+          - 'null'
+          description: Coarse browser and operating-system label.
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - at
+      - event
+      - client
+      properties:
+        id:
+          type: integer
+        at:
+          $ref: '#/components/schemas/Timestamp'
+        event:
+          type: string
+        client:
+          type:
+          - string
+          - 'null'
+          description: Pseudonymous client IP tag.
+    Device:
+      type: object
+      additionalProperties: false
+      required:
+      - deviceID
+      - vaultID
+      - name
+      - createdAt
+      - lastSeenAt
+      properties:
+        deviceID:
+          $ref: '#/components/schemas/UUID'
+        vaultID:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        lastSeenAt:
+          type:
+          - integer
+          - 'null'
+          description: Unix timestamp in seconds, or null before the device authenticates.
