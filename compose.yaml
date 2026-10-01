@@ -1,0 +1,66 @@
+# Production deployment: HTTPS by default through the bundled Caddy.
+#   1. Point a DNS A/AAAA record for your domain at this host (ports 80 and 443 open).
+#   2. ./scripts/init-env.sh vault.example.com
+#   3. docker compose up -d
+name: quancard
+
+services:
+  quancard:
+    image: ghcr.io/zoolapp/quancard-server:${QC_IMAGE_TAG:-latest}
+    build:
+      context: .
+      args:
+        QC_VERSION: ${QC_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      QC_SECRET: ${QC_SECRET:?run scripts/init-env.sh first}
+      QC_SETUP_TOKEN: ${QC_SETUP_TOKEN:-}
+      QC_PUBLIC_ORIGIN: https://${QC_DOMAIN:?run scripts/init-env.sh first}
+      QC_TRUST_PROXY: "1"
+      QC_HOST: 0.0.0.0
+    volumes:
+      - quancard-data:/data
+    networks: [internal]
+    # No published ports: only Caddy can reach the app.
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    user: "10001:10001"
+    pids_limit: 256
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      quancard:
+        condition: service_healthy
+    environment:
+      QC_DOMAIN: ${QC_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy/data:/data
+      - ./data/caddy/config:/config
+    networks: [internal, public]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  internal:
+    internal: true
+  public: {}
+
+volumes:
+  quancard-data: {}

@@ -1,0 +1,24 @@
+# Automatic HTTPS (Let's Encrypt / ZeroSSL) for your domain.
+# Caddy redirects HTTP to HTTPS and renews certificates on its own.
+{$QC_DOMAIN} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy quancard:8080 {
+		# Only the bundled proxy can reach the app container; it is the one trusted hop.
+		header_up X-Forwarded-Proto https
+	}
+	log {
+		output stdout
+		# Never log query strings, cookies or other headers; mask client IPs.
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ?redacted
+				request>remote_ip ip_mask 16 32
+				request>client_ip ip_mask 16 32
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
+}

@@ -1,0 +1,28 @@
+# Local evaluation only: plain HTTP on 127.0.0.1, never reachable from other machines.
+#   ./scripts/init-env.sh localhost && docker compose -f compose.local.yaml up -d
+# Browsers treat http://localhost as a secure context, so WebCrypto works.
+name: quancard-local
+
+services:
+  quancard:
+    image: ghcr.io/zoolapp/quancard-server:${QC_IMAGE_TAG:-latest}
+    build: { context: . }
+    container_name: quancard-local
+    restart: unless-stopped
+    environment:
+      QC_SECRET: ${QC_SECRET:?run scripts/init-env.sh first}
+      QC_SETUP_TOKEN: ${QC_SETUP_TOKEN:-}
+      QC_ALLOW_INSECURE_LOCALHOST: "1"
+      QC_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - quancard-data:/data
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    user: "10001:10001"
+
+volumes:
+  quancard-data: {}
