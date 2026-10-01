@@ -11,8 +11,9 @@
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-strong: rgba(0, 0, 0, 0.16);
   --ink: #1c1c1f;
-  --ink-2: #6b6b73;
-  --ink-3: #8e8e94;
+  /* Secondary/tertiary ink stay ≥ 4.5:1 on canvas and fields (WCAG AA), even at light weight. */
+  --ink-2: #5c5c63;
+  --ink-3: #6e6e75;
   --danger: #c4312b;
   --danger-ink: #ffffff;
   --warn-bg: #fff6e5;
@@ -413,6 +414,11 @@ textarea.input {
   scrollbar-width: none;
 }
 
+.chips.wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 .chip {
   flex: none;
   min-height: 34px;
@@ -478,7 +484,7 @@ textarea.input {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 20px 16px;
 }
 
@@ -545,6 +551,7 @@ textarea.input {
 .card-tile {
   display: block;
   width: 100%;
+  min-width: 0;
   border: 0;
   padding: 0;
   background: none;
@@ -630,6 +637,7 @@ textarea.input {
 }
 
 .card-caption .cap-title {
+  min-width: 0;
   font-size: 16px;
   font-weight: 400;
   overflow: hidden;
@@ -925,7 +933,7 @@ dialog h2 {
   }
 
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

@@ -193,7 +193,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
           {card && <CardFace item={{ ...item, artworkBlobID: artwork?.id ?? null }} artwork={artwork} />}
           {card && (
             <section class="settings-section" aria-label={t("cardFace")}>
-              <div class="chips" role="toolbar" aria-label={t("template")}>
+              <div class="chips wrap" role="toolbar" aria-label={t("template")}>
                 {TEMPLATE_IDS.map((id) => (
                   <button
                     key={id}

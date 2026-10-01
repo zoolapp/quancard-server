@@ -12,3 +12,4 @@ playwright-report/
 *.sqlite-*
 .DS_Store
 e2e-data/
+.ui-acceptance/

@@ -79,7 +79,8 @@
       "id": "W12",
       "title": "Second opinion + review + verifier",
       "verification": "docs/reviews present; goal-verifier PASS",
-      "passes": false
+      "passes": true,
+      "evidence": "docs/reviews/2026-10-01-second-opinion.md (codex read-only review, all blockers fixed with tests); fable-reviewer PASS; UI gate docs/verification/ui-acceptance-2026-10-01.md PASS 360/360 + 12/12; goal-verifier re-run pending after v0.1.0 release"
     },
     {
       "id": "W13",

@@ -26,7 +26,10 @@ A revision `snapshot` is standard Base64 of a vault payload (`.qvault` payload s
 when a CVC is present) containing exactly one item and at most one JPEG photo; `null` is a
 tombstone. Parents are `{revisionID, digest}` sorted by revision ID. The strict codec rejects
 duplicate/unknown keys, fractions, BOMs, nesting deeper than 32 and forbidden fields (PIN, track
-data, …). See `packages/protocol/src/{sync,payload}.ts`.
+data, …). Integers must be JSON integers; this TypeScript implementation additionally limits them to
+±2^53−1 (Swift allows Int64). iOS only writes small counters and index-based sort positions, so valid
+data is unaffected; an out-of-range revision is treated as unreadable, never rounded. See
+`packages/protocol/src/{sync,payload}.ts`.
 
 ## 3. Merge rules (clients)
 

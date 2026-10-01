@@ -17,10 +17,10 @@ covered by regression tests. This is an internal review, not an independent thir
 | F6 | high* | Forwarded headers and the localhost exemption were not bound to the connecting peer | Honoured only from loopback/private peers (bundled proxy); proxy-address function restricted the same way | F6 ×2 |
 | F7 | medium | Any `Bearer …` header skipped CSRF checks while auth fell back to the cookie | Only a well-formed device token is exempt; any Authorization header disables cookie auth | F7 |
 | F8 | medium | Setup and invite registration not atomic; setup token reusable after deleting the last account | Hash first, then check-and-insert in one transaction; unique-owner index; consumed setup token recorded | F8 ×2 |
-| F9 | medium | Background 60 s lock not timed; reveal grace survived lock | Background timer plus visibility check; grace revoked on lock | covered by code review |
+| F9 | medium | Background 60 s lock not timed; reveal grace survived lock | Background timer plus visibility check; grace revoked on lock | web `session.test.ts` F9 ×3 |
 | F10, F13 | medium | Threat-model wording overstated (QR 10-minute “exposure”, authKey entropy, “two layers”, TLS, iPhone safety, “never stores PINs”) | Rewritten; QR key exposure is indefinite; password change is re-wrapping, not rotation | — |
 | F11 | medium | Unreadable records advanced the cursor; doc implied browsers detect rollback | Cursor stops before the first unreadable record and retries; doc states the web client cannot detect rollback | web F11 |
-| F12 | medium | JS integers vs Swift Int64 | iOS emits small counters and index-based sort positions; out-of-range values are treated as unreadable, documented | — |
+| F12 | medium | JS integers vs Swift Int64 | iOS emits small counters and index-based sort positions; out-of-range values are treated as unreadable; documented in THREAT_MODEL §4 and sync-v1 §2 | — |
 
 \* Severity depends on deployment: the default compose never publishes the app port.
 

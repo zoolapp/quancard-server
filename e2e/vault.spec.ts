@@ -266,6 +266,23 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   expect(merged.heads(itemID)).toHaveLength(1);
   expect(merged.heads(itemID)[0]?.revision.parents.length).toBe(2);
 
+  // --- Delete: the item disappears here and the other device sees a tombstone ----------
+  await page.getByRole("button", { name: /Synthetic Debit/ }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("heading", { name: "Delete this item?" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("button", { name: /Synthetic Debit/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /Cards/ })).toContainText("1");
+  const afterDelete = await (await request.get(`/api/v1/vaults/${VAULT_ID}/revisions?after=0`, { headers: auth })).json();
+  const deletedGraph = new RevisionGraph(VAULT_ID);
+  const deletedNodes = [];
+  for (const entry of afterDelete.revisions) deletedNodes.push(await openRevision(base64.decode(entry.body), entry.revisionID, VAULT_ID, key));
+  deletedGraph.add(deletedNodes);
+  const debitID = deletedNodes.find((n) => n.snapshot?.items[0]?.displayName === "Synthetic Debit")?.revision.itemID as string;
+  const debitHeads = deletedGraph.heads(debitID);
+  expect(debitHeads).toHaveLength(1);
+  expect(debitHeads[0]?.snapshot).toBeNull();
+
   // --- Lock / unlock --------------------------------------------------------------------
   await page.getByRole("button", { name: "Lock" }).click();
   await expect(page.getByRole("heading", { name: "Locked" })).toBeVisible();
