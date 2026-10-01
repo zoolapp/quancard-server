@@ -1,0 +1,22 @@
+{
+  "name": "quancard-server-workspace",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.29.2",
+  "engines": {
+    "node": ">=24.7"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "dev": "pnpm --parallel -r dev"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "typescript": "~5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}

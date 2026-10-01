@@ -1,0 +1,104 @@
+{
+  "failureCases": [
+    {
+      "expected": "authenticationFailure",
+      "id": "wrong-passphrase"
+    },
+    {
+      "expected": "authenticationFailure",
+      "id": "wrapped-key-tamper"
+    },
+    {
+      "expected": "authenticationFailure",
+      "id": "payload-tamper"
+    },
+    {
+      "expected": "authenticationFailure",
+      "id": "payload-tag-tamper"
+    },
+    {
+      "expected": "authenticationFailure",
+      "id": "aad-binding-tamper"
+    },
+    {
+      "expected": "unsupportedFormat",
+      "id": "format-downgrade"
+    },
+    {
+      "expected": "unsupportedFormat",
+      "id": "future-format"
+    },
+    {
+      "expected": "unsupportedKDFParameters",
+      "id": "kdf-downgrade"
+    },
+    {
+      "expected": "malformedEnvelope",
+      "id": "malformed-base64"
+    },
+    {
+      "expected": "forbiddenField",
+      "id": "forbidden-cvv-field"
+    }
+  ],
+  "profile": {
+    "aead": {
+      "algorithm": "aes-256-gcm",
+      "keyBytes": 32,
+      "nonceBytes": 12,
+      "tagBytes": 16
+    },
+    "compression": "none",
+    "encoding": "base64url-no-padding",
+    "format": "quancard.qvault",
+    "formatVersion": 1,
+    "kdf": {
+      "algorithm": "argon2id-1.3",
+      "iterations": 3,
+      "memoryKiB": 262144,
+      "normalization": "NFC",
+      "outputBytes": 32,
+      "parallelism": 1,
+      "saltBytes": 16
+    },
+    "payloadSchemaVersion": 1
+  },
+  "success": {
+    "backupContentKey": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+    "derivedKeyEncryptionKey": "RxxU_O5u7nDspTWYhpKO0zTZJVomM4YSn_Xu2YBS45I",
+    "envelope": {
+      "backupID": "00112233-4455-4abc-8def-0123456789ab",
+      "format": "quancard.qvault",
+      "formatVersion": 1,
+      "kdf": {
+        "algorithm": "argon2id-1.3",
+        "iterations": 3,
+        "memoryKiB": 262144,
+        "normalization": "NFC",
+        "outputBytes": 32,
+        "parallelism": 1,
+        "salt": "AAECAwQFBgcICQoLDA0ODw"
+      },
+      "keyWrap": {
+        "algorithm": "aes-256-gcm",
+        "ciphertext": "NS5iTlvxBQjdRNWbBt3TNtQK9JZ6qJZmad6csz9vOts",
+        "nonce": "oKGio6Slpqeoqaqr",
+        "tag": "7ngxwQWk0vYlVVacGarKqw"
+      },
+      "payload": {
+        "algorithm": "aes-256-gcm",
+        "ciphertext": "TdhLNeZUp3xZfj_AWGCxFPVBx_r-LfBwlGaVeucXPe85_WDZ5cxCFvFeKz3mkawO58nWJQkhKHEseQiic4EENT770Kw1uKoXf8DjZiQ7fN4Q139ROdNOQuBb",
+        "compression": "none",
+        "nonce": "sLGys7S1tre4ubq7",
+        "schemaVersion": 1,
+        "tag": "5RsNvD_ZZdzznHPfg6qtww"
+      }
+    },
+    "keyWrapAADUTF8": "quancard.qvault|format=1|stage=key-wrap|backupID=00112233-4455-4abc-8def-0123456789ab|kdf=argon2id-1.3|m=262144|t=3|p=1|keyBytes=32|normalization=NFC|salt=AAECAwQFBgcICQoLDA0ODw|cipher=aes-256-gcm",
+    "normalizedPassphrase": "QuánCard test-only backup passphrase",
+    "payloadAADUTF8": "quancard.qvault|format=1|stage=payload|backupID=00112233-4455-4abc-8def-0123456789ab|schema=1|compression=none|cipher=aes-256-gcm",
+    "plaintextUTF8": "{\"artworks\":[],\"createdAt\":\"2000-01-01T00:00:00.000Z\",\"items\":[],\"payloadSchemaVersion\":1}",
+    "rawPassphrase": "QuánCard test-only backup passphrase"
+  },
+  "vectorVersion": 1
+}

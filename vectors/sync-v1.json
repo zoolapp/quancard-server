@@ -1,0 +1,21 @@
+{
+  "vectorVersion": 1,
+  "warning": "Public synthetic keys; never use for real data.",
+  "syncKeyBase64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "recoveryCode": "QC1.10000000-0000-4000-8000-000000000001.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "manifest": {
+    "plaintextUTF8": "{\"vaultID\":\"10000000-0000-4000-8000-000000000001\",\"version\":1}",
+    "envelopeUTF8": "{\"formatVersion\":1,\"objectKind\":\"syncManifest.v1\",\"payload\":\"ISEhISEhISEhISEh2Z1bvTylStojQnWK0SDfwkR+UUx7+Tt74ROtCzcvUs1ZEpjNvmT96LoWBePdbAk+67vFYB6MpZOEmsQhhTH2s/EaIWenWjgUJTI3o0c3\",\"recordID\":\"10000000-0000-4000-8000-000000000001\",\"wrappedDEK\":\"ERERERERERERERERgWGVvrkBLq9pfiQDQCQRu+IegaQUMJFoLNqaByliwlMVrQzkA3Pgq52Akebz4Hyo\"}",
+    "sha256": "OJTI35y+HsxSe9zlBcSn3DMGU8dTEH0s9XlHOmiZmHE="
+  },
+  "rootDeletion": {
+    "plaintextUTF8": "{\"counter\":1,\"installationID\":\"40000000-0000-4000-8000-000000000001\",\"itemID\":\"30000000-0000-4000-8000-000000000001\",\"parents\":[],\"revisionID\":\"20000000-0000-4000-8000-000000000001\",\"snapshot\":null,\"vaultID\":\"10000000-0000-4000-8000-000000000001\",\"version\":1}",
+    "envelopeUTF8": "{\"formatVersion\":1,\"objectKind\":\"syncRevision.v1\",\"payload\":\"IiIiIiIiIiIiIiIiAsrxmFnvqXIdydd16QAVhr2Ff/cN2naT7XKnQkENg05APbkNAAaQysPd1tpZ3k5XqZhcv6PHA6qFVkJ463q4d/qYsKsfiHXgGDVFNm8D1rZzByBJmzSaYlgufDwqub3lDdoOOp/ydCyHcmAcqJdOH7GmaXCr7702z0o3jdTiQZlIDTaoKVchsA3oT2N0DN/uzr1BtNNUa6Flg0MZyVzeMCYzRqi/ldhCEKJZ0TRJzXUSW/A2eYfIkopiAbUaeMFZt/vPoM3EmbY26mCZE9ChMIf0b1Q3JG2kam6JZnvw2C3LOxr/j8Y3jdgYH1Ye7Ln04cdkmX93sZth2MjQ9Uctc3EWdDqXj2BZgCE33fRnO6yVolQ=\",\"recordID\":\"20000000-0000-4000-8000-000000000001\",\"wrappedDEK\":\"EhISEhISEhISEhIS3ZOY0NOUg8xtHaWr/cmCBHFUMmBbQg+akBm1/+xxkpTj7FeJ9ZDKXwljn8/OJg37\"}",
+    "sha256": "uDMc5j0JRttG5blc2itjxVTQ4hnfwf+wfD4Uyk0kzJk="
+  },
+  "childDeletion": {
+    "plaintextUTF8": "{\"counter\":2,\"installationID\":\"40000000-0000-4000-8000-000000000001\",\"itemID\":\"30000000-0000-4000-8000-000000000001\",\"parents\":[{\"digest\":\"uDMc5j0JRttG5blc2itjxVTQ4hnfwf+wfD4Uyk0kzJk=\",\"revisionID\":\"20000000-0000-4000-8000-000000000001\"}],\"revisionID\":\"20000000-0000-4000-8000-000000000002\",\"snapshot\":null,\"vaultID\":\"10000000-0000-4000-8000-000000000001\",\"version\":1}",
+    "envelopeUTF8": "{\"formatVersion\":1,\"objectKind\":\"syncRevision.v1\",\"payload\":\"IyMjIyMjIyMjIyMjcQ0eirSrNilGg6GFypo1kPPJdgXtPWOJFRRk8EOyij0SEboEAR3qPMsPBKaOI9MgWggnG2H6hbUwC6RD4XXmpxKrJAODfecWMnc9zMKxlb7oQ6EbySbg3dxvG0IHhaCe1zq0XZDY4hdUjS/s2QafOHNOZeV0SYypP31wCSNeF6QsYaBjB69RrSUgEJGYM1FfX1egD2gTfIo248E9F5VIcPuGxQRetHzNHYEQGeibkzfksWWOWLzuTKuQXud0wGoLNpNp6OuOIH/u0PRcDqdEEETqH4KO2jvln3rvOC2M7u8Mq41GRGRWwZDREPjMpXZByWu25qC+XuBSStUqZcsD5AY8uhEh6jg6RjIYZE/aAJGgqnC2YVW10J34FgipfD9U3nilZhfnXrhyg8YL0xLtbFM+tSqQLGyBBWDWBOXEfjF4+d+W7qTzCKkSepE7Cg1RrpaWNVbjOeg0oeYIsfCwQgdUw5lNwH4Abw0QQPRyLGIPG1hyCTUsfjdszEMpOZfL\",\"recordID\":\"20000000-0000-4000-8000-000000000002\",\"wrappedDEK\":\"ExMTExMTExMTExMTEEoLwErYWMQ7ezL4X04Cf0wFGebhQr8Ltp+9vFUWsnfzOP0gYctxkosuYJweCmIM\"}",
+    "sha256": "0NPeW0E0R5YnyuHielgBwmvIQW3mJsE+vN2hzlfUiSw="
+  }
+}

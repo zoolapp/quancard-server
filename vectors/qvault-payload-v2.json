@@ -1,0 +1,41 @@
+{
+  "vectorVersion": 1,
+  "description": "Public synthetic CVC; envelope v1, payload v2",
+  "success": {
+    "rawPassphrase": "QuánCard test-only backup passphrase",
+    "normalizedPassphrase": "QuánCard test-only backup passphrase",
+    "plaintextUTF8": "{\"artworks\":[],\"createdAt\":\"2000-01-01T00:00:00.000Z\",\"items\":[{\"artworkBlobID\":null,\"artworkTemplateID\":\"graphite\",\"bankAccount\":null,\"country\":null,\"createdAt\":\"2000-01-01T00:00:00.000Z\",\"displayName\":\"Synthetic CVC compatibility vector\",\"id\":\"11223344-5566-4789-8abc-0123456789ab\",\"institutionName\":null,\"isFavorite\":false,\"itemSchemaVersion\":1,\"kind\":\"paymentCard\",\"lifecycle\":\"active\",\"manualSortPosition\":null,\"notes\":null,\"paymentCard\":{\"cardholderName\":null,\"cvc\":\"000\",\"expiryMonth\":12,\"expiryYear\":2030,\"formFactor\":\"physical\",\"fundingType\":\"credit\",\"network\":\"other\",\"pan\":\"0000000000000000\",\"walletProvisions\":[]},\"tags\":[],\"updatedAt\":\"2000-01-01T00:00:00.000Z\"}],\"payloadSchemaVersion\":2}",
+    "backupContentKey": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+    "derivedKeyEncryptionKey": "RxxU_O5u7nDspTWYhpKO0zTZJVomM4YSn_Xu2YBS45I",
+    "keyWrapAADUTF8": "quancard.qvault|format=1|stage=key-wrap|backupID=00112233-4455-4abc-8def-0123456789ab|kdf=argon2id-1.3|m=262144|t=3|p=1|keyBytes=32|normalization=NFC|salt=AAECAwQFBgcICQoLDA0ODw|cipher=aes-256-gcm",
+    "payloadAADUTF8": "quancard.qvault|format=1|stage=payload|backupID=00112233-4455-4abc-8def-0123456789ab|schema=2|compression=none|cipher=aes-256-gcm",
+    "envelope": {
+      "format": "quancard.qvault",
+      "formatVersion": 1,
+      "backupID": "00112233-4455-4abc-8def-0123456789ab",
+      "kdf": {
+        "algorithm": "argon2id-1.3",
+        "memoryKiB": 262144,
+        "iterations": 3,
+        "parallelism": 1,
+        "salt": "AAECAwQFBgcICQoLDA0ODw",
+        "outputBytes": 32,
+        "normalization": "NFC"
+      },
+      "keyWrap": {
+        "algorithm": "aes-256-gcm",
+        "nonce": "oKGio6Slpqeoqaqr",
+        "ciphertext": "NS5iTlvxBQjdRNWbBt3TNtQK9JZ6qJZmad6csz9vOts",
+        "tag": "7ngxwQWk0vYlVVacGarKqw"
+      },
+      "payload": {
+        "schemaVersion": 2,
+        "algorithm": "aes-256-gcm",
+        "compression": "none",
+        "nonce": "sLGys7S1tre4ubq7",
+        "ciphertext": "TdhLNeZUp3xZfj_AWGCxFPVBx_r-LfBwlGaVeucXPe85_WDZ5cxCFvFeKz3mkawO58nWJQkhKHEseQiic4EEEzC40rk7u7cdWf_vbAgSP7Ib0GBUep8NCqVRp8LDjDFQP73wHhak12k6zlUvl6YnaQ_Y5z83irKaFW3IFGjRZCWGQbD6SZZT9ARAV8EG2FrXw5mIrrRmvaWS0T1jNR6VXwK2R-vcP41OVMoAz6-YYGqCYyMT2fTnyl4j2FtQy8IU0IUy5Ndcom-_hbmxXD6r8KaserI_adyq7ZBUrqdbSLoYQ3vVU7ELTl-5l0NBBSqTcTK44oWbgBEXWbsE37R_bcMQgelbial0CB7-r9cnxCjCppyhENFRG_Y5KCh4JqGdO0auCDCu8YWpfkw1UEua6S61cbJ_zXouE--CbduGoAUBlaISQiolrnx3mwL31I5yMgTB7vfjSFUZwfKqGVgJYouwT48vJylcT_EHS5WhIgzfsh_0LBMS8xnWrQxXWN6aVeo5oxKDGi9zdP3cXV2pxITqyE9nnVxQJZynTbUPEG5HXidq_vfJumyTeNmtBYqYX6Oxg4dEb_gTTstWU29MsLAggBWp04GXW8HCBWoxa4gksk3DU30OouifTs55k9sg6EPpS_9s_j-qyXT6gTuifec9_YoYTRzD3lVOZ4_WIc28RTWmvpcIreWVNKarkH_KVfFsM1p_KEMRdUUMKQF46U1HO7n5cXkYlVN_HqCuj-S_OptB97ZPYX0s0lEPkUq5zMrng-37I97-oADOYsH11uqFz0ekjNpe2PByOkJe8VTxpwivKSj68LbmMwO3IS9-2yzAWhVd49mPAeg0M-fJvlehMwpXBVb6v5Z7Qn4Evrd4K17o4Hf2JKJeOCQu7jk0Ix78THtDP9CHQ9Hk_yra7OSL4dlx2N8sUsHiNhKO",
+        "tag": "0f8-cq6FCS2jDMO5SxSL1A"
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "goal": "QuanCard self-hosted vault + sync server MVP",
+  "rule": "One task in progress at a time; flip passes only after the verification command actually ran.",
+  "tasks": [
+    {
+      "id": "W01",
+      "title": "Workspace scaffold, licenses, vector provenance",
+      "verification": "pnpm install && pnpm -r typecheck; vectors sha256 match iOS 2dc0af1",
+      "passes": true
+    },
+    {
+      "id": "W02",
+      "title": "@quancard/protocol envelope v1 / sync v1 / payload v1-v2 codecs",
+      "verification": "pnpm --filter @quancard/protocol test (vectors reproduced byte-for-byte)",
+      "passes": true
+    },
+    {
+      "id": "W03",
+      "title": "Contracts: auth-v1, pairing-v1, api-v1 (OpenAPI), THREAT_MODEL",
+      "verification": "redocly lint openapi.yaml; relative link check",
+      "passes": false
+    },
+    {
+      "id": "W04",
+      "title": "Server auth: setup, invites, login, sessions, TOTP, lockout, rate limits, audit",
+      "verification": "pnpm --filter @quancard/server test",
+      "passes": true
+    },
+    {
+      "id": "W05",
+      "title": "Server data plane: vaults, revisions, quotas, pairing, devices, HTTPS/CSRF/headers",
+      "verification": "pnpm --filter @quancard/server test",
+      "passes": true
+    },
+    {
+      "id": "W06",
+      "title": "Web shell: setup, login, TOTP, unlock/lock, key lifecycle",
+      "verification": "Playwright e2e auth flow; no key material in web storage",
+      "passes": false
+    },
+    {
+      "id": "W07",
+      "title": "Web vault: list/detail/add/edit/delete, card faces, reveal policy, conflicts",
+      "verification": "Playwright e2e vault flow + unit tests",
+      "passes": false
+    },
+    {
+      "id": "W08",
+      "title": "Deployment: Dockerfile, compose (Caddy auto-HTTPS + local profile), scripts",
+      "verification": "docker compose --profile local up --wait; healthz; hardening inspect; backup/restore",
+      "passes": false
+    },
+    {
+      "id": "W09",
+      "title": "iPhone pairing QR and QC1 import",
+      "verification": "e2e: QR format, single-use claim, request bodies never contain the vault key",
+      "passes": false
+    },
+    { "id": "W10", "title": "Docs and CI", "verification": "README/SECURITY/THREAT_MODEL/deployment present; CI green", "passes": false },
+    {
+      "id": "W11",
+      "title": "End-to-end, zero-knowledge scan, screenshots",
+      "verification": "scripts/verify-zero-knowledge.sh; 20 screenshots desktop/mobile light/dark",
+      "passes": false
+    },
+    { "id": "W12", "title": "Second opinion + review + verifier", "verification": "docs/reviews present; goal-verifier PASS", "passes": false },
+    { "id": "W13", "title": "iOS ADR-0009 (Proposed) for HTTP transport", "verification": "iOS repo: only the new ADR file added", "passes": false }
+  ]
+}
