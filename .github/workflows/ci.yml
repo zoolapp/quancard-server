@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Build
+        run: pnpm -r build
+      - name: Type check
+        run: pnpm -r typecheck
+      - name: Unit tests and cross-platform protocol vectors
+        run: pnpm -r test
+      - name: Vectors match the published iOS copies
+        run: |
+          cd vectors
+          grep -oE '`[0-9a-f]{64}`' SOURCES.md | tr -d '`' > expected.txt
+          sha256sum sync-v1.json qvault-v1.json qvault-payload-v2.json | cut -d' ' -f1 > actual.txt
+          diff expected.txt actual.txt
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: End-to-end story
+        run: pnpm exec playwright test
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+      - name: Dependency audit (production)
+        run: pnpm audit --prod --audit-level high
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: quancard-server:ci
+      - name: Container smoke test (hardened, HTTPS enforced)
+        run: |
+          docker run -d --name qc --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            -e QC_SECRET=$(openssl rand -hex 32) -e QC_ALLOW_INSECURE_LOCALHOST=1 -p 127.0.0.1:8080:8080 quancard-server:ci
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/healthz && break; sleep 1; done
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: vault.example.com' -X POST http://127.0.0.1:8080/api/v1/auth/login)" = 426
+          test "$(docker inspect qc --format '{{.Config.User}}')" = "10001:10001"
+          docker rm -f qc
