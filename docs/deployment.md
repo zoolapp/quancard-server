@@ -38,11 +38,12 @@ Prefer not to build locally? `docker compose pull` uses the published image; set
 
 ### One-step installer
 
-[`scripts/install.sh`](../scripts/install.sh) downloads the compose file, Caddyfile and scripts into
-`~/quancard`, runs `init-env.sh` and starts the stack. Read it before running it:
+[`scripts/install.sh`](../scripts/install.sh) clones the pinned release tag into `~/quancard`, runs
+`init-env.sh`, pins `QC_IMAGE_TAG` in `.env`, pulls the published image — or builds the same tag from
+source if the image is not available — and starts the stack. Read it before running it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/v0.1.0/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/zoolapp/quancard-server/v0.1.1/scripts/install.sh -o install.sh
 less install.sh
 sh install.sh vault.example.com
 ```

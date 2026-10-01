@@ -2,6 +2,11 @@
 
 All notable changes are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
+## 0.1.1 — 2026-10-01
+
+- One-step installer clones the pinned release and falls back to building the image from source when
+  the published image cannot be pulled; the image tag is pinned in `.env`.
+
 ## 0.1.0 — 2026-10-01
 
 First development preview.
