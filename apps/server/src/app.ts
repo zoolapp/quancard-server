@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, LogController } from "fastify";
 import type { Config } from "./config.js";
 import { Context } from "./context.js";
 import type { Database } from "./db.js";
@@ -19,7 +19,7 @@ export async function buildApp(config: Config, db: Database, options: BuildOptio
     // Exactly one trusted hop (the bundled reverse proxy); client-supplied X-Forwarded-For entries are ignored.
     trustProxy: config.trustProxy ? (_address: string, hop: number) => hop < 1 : false,
     bodyLimit: 1024 * 1024,
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     // Never derive request IDs from client headers; never log bodies, headers or URLs with queries.
     logger: options.logger
       ? {
@@ -74,7 +74,7 @@ export async function buildApp(config: Config, db: Database, options: BuildOptio
       },
     });
     app.setNotFoundHandler((request, reply) => {
-      if (request.method !== "GET" || request.url.startsWith("/api/") || !index) return reply.code(404).send({ error: "notFound" });
+      if (!["GET", "HEAD"].includes(request.method) || request.url.startsWith("/api/") || !index) return reply.code(404).send({ error: "notFound" });
       return reply.type("text/html; charset=utf-8").send(index);
     });
   } else {

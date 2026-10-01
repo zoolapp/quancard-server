@@ -11,3 +11,4 @@ playwright-report/
 *.sqlite
 *.sqlite-*
 .DS_Store
+e2e-data/
