@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # QuanCard self-hosted server: one image serving the API and the static web client.
 
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 RUN corepack enable
 WORKDIR /src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
@@ -19,7 +19,7 @@ RUN pnpm --filter @quancard/protocol build \
  && pnpm --filter @quancard/server deploy --prod --legacy /out \
  && rm -rf /out/src /out/test /out/tsconfig*.json
 
-FROM node:24-alpine
+FROM node:26-alpine
 ARG QC_VERSION=0.1.0
 LABEL org.opencontainers.image.title="quancard-server" \
       org.opencontainers.image.description="Zero-knowledge self-hosted vault and sync server for QuanCard" \
