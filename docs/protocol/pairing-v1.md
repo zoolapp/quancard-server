@@ -25,6 +25,12 @@ repository as a proposed ADR; until it ships, the QR code is not yet scannable b
    (`GET /api/v1/vaults/{vaultID}/manifest`, `Authorization: Bearer <deviceToken>`) before syncing.
    A manifest that fails verification aborts pairing.
 
+5. While the QR code is open, the browser polls `POST /api/v1/pairings/status {code}` (its own
+   session only). Once the code is claimed, it shows the pairing as connected, names the device
+   and follows its first sync (`device.lastSeenAt` is set when the iPhone first calls the API),
+   refreshing its own copy of the vault. The iPhone shows the same "linked" animation after its
+   claim and first sync (see [pairing-linked motion](../design/pairing-linked-motion.md)).
+
 A code works once (`410 pairingInvalid` afterwards) and expired codes return the same error.
 The 10 minutes bound only the redemption of the code; the vault key in the QR does not expire (see
 §4). Changing the account password deletes unredeemed codes.

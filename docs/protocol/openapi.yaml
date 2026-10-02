@@ -1542,6 +1542,82 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/Internal'
+  /api/v1/pairings/status:
+    post:
+      operationId: getPairingStatus
+      summary: Check whether a pairing code was redeemed
+      description: Called by the browser that displays the QR code, so it can confirm the pairing and follow the
+        device's first sync. Requires the session of the account that created the code; the code travels in the
+        body, never in a URL. Unknown codes, other accounts' codes and malformed codes all return 404.
+      security:
+      - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - code
+              properties:
+                code:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{32}$
+      responses:
+        '200':
+          description: Current state of the pairing code.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - status
+                - expiresAt
+                - device
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - pending
+                    - claimed
+                    - expired
+                  expiresAt:
+                    type: integer
+                  device:
+                    description: The device created by the claim; null until claimed.
+                    oneOf:
+                    - type: 'null'
+                    - type: object
+                      additionalProperties: false
+                      required:
+                      - deviceID
+                      - name
+                      - createdAt
+                      - lastSeenAt
+                      properties:
+                        deviceID:
+                          $ref: '#/components/schemas/UUID'
+                        name:
+                          type: string
+                        createdAt:
+                          type: integer
+                        lastSeenAt:
+                          type:
+                          - integer
+                          - 'null'
+                          description: Set once the device has called the API with its token (first sync).
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 'notFound: unknown, malformed or another account''s code.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/Internal'
   /api/v1/devices:
     get:
       operationId: listDevices

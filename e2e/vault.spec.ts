@@ -187,7 +187,7 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
 
   // --- Second device: pair, read web revisions with the strict codec, write a concurrent edit
   await page.getByRole("button", { name: "Settings" }).click();
-  const pairingResponse = page.waitForResponse((r) => r.url().includes("/pairings") && r.request().method() === "POST");
+  const pairingResponse = page.waitForResponse((r) => r.url().endsWith("/pairings") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Pair iPhone" }).click();
   await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
   await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
@@ -196,14 +196,19 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await shoot(page, "pairing");
   const pairingRequestBody = (await (await pairingResponse).request().postDataJSON()) as Record<string, unknown>;
   expect(Object.keys(pairingRequestBody)).toEqual(["authKey"]);
-  await page.getByRole("button", { name: "Close code" }).click();
-
+  // The phone claims while the QR is still open: the browser notices and follows the first sync.
+  await expect(page.getByText("Waiting for your iPhone to scan…")).toBeVisible();
   const claim = await request.post("/api/v1/pairings/claim", { data: { code: pairing.code, deviceName: "E2E Phone" } });
   expect(claim.status()).toBe(201);
   const { deviceToken } = await claim.json();
   expect((await request.post("/api/v1/pairings/claim", { data: { code: pairing.code } })).status()).toBe(410);
+  await expect(page.locator("dialog[open]").getByRole("heading", { name: "iPhone connected" })).toBeVisible();
+  await expect(page.locator("dialog[open]").getByText("E2E Phone")).toBeVisible();
   const auth = { Authorization: `Bearer ${deviceToken}` };
   const page1 = await (await request.get(`/api/v1/vaults/${VAULT_ID}/revisions?after=0`, { headers: auth })).json();
+  await expect(page.locator("dialog[open]").getByText("Synced", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.locator("dialog[open]").getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText("E2E Phone")).toBeVisible();
   const key = await importAESKey(SYNC_KEY);
   const graph = new RevisionGraph(VAULT_ID);
   const nodes = [];

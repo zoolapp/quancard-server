@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { loadSampleData, removeSampleData } from "../actions.js";
 import { api } from "../api.js";
+import { PairingFlow } from "../components/pairing.js";
 import { Dialog, errorMessage, Field, Icon, PasswordDialog, QRCanvas } from "../components/ui.js";
 import { isSample } from "../demo.js";
 import { formatBytes, formatTime, locale, type MessageKey, setLocale, t } from "../i18n.js";
@@ -276,8 +277,7 @@ function Devices() {
   const store = vault.value;
   const [devices, setDevices] = useState<Awaited<ReturnType<typeof api.devices>>["devices"]>([]);
   const [asking, setAsking] = useState(false);
-  const [pairing, setPairing] = useState<{ payload: string; expiresAt: number } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [pairing, setPairing] = useState<{ payload: string; code: string; expiresAt: number } | null>(null);
   const [error, setError] = useState("");
   const load = () =>
     void api.devices().then(
@@ -285,14 +285,6 @@ function Devices() {
       () => undefined,
     );
   useEffect(load, []);
-  useEffect(() => {
-    if (!pairing) return;
-    const timer = setInterval(() => {
-      setNow(Date.now());
-      if (Date.now() / 1000 >= pairing.expiresAt) setPairing(null);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [pairing]);
 
   const start = async (secrets: Secrets) => {
     setAsking(false);
@@ -301,7 +293,7 @@ function Devices() {
       const { code, expiresAt } = await api.createPairing(store.vaultID, secrets.authKey);
       // The vault key is added here, in the browser; the server only ever saw the one-time code.
       const params = new URLSearchParams({ host: location.origin, code, key: recoveryCode(store.syncMaterial()) });
-      setPairing({ payload: `${PAIRING_SCHEME}?${params.toString()}`, expiresAt });
+      setPairing({ payload: `${PAIRING_SCHEME}?${params.toString()}`, code, expiresAt });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -310,7 +302,6 @@ function Devices() {
     setPairing(null);
     load();
   };
-  const remaining = pairing ? Math.max(0, Math.round(pairing.expiresAt - now / 1000)) : 0;
 
   return (
     <>
@@ -340,17 +331,7 @@ function Devices() {
         </p>
       )}
       <PasswordDialog open={asking} title={t("pairIphone")} onClose={() => setAsking(false)} onConfirmed={start} />
-      <Dialog open={pairing !== null} onClose={close} title={t("pairIphone")}>
-        <p class="lead">{t("pairLead")}</p>
-        {pairing && <QRCanvas value={pairing.payload} label={t("pairIphone")} />}
-        <p class="notice warn">{t("pairWarning")}</p>
-        <p class="help">{t("pairExpires", { time: `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` })}</p>
-        <div class="row-actions">
-          <button type="button" class="btn primary" onClick={close}>
-            {t("pairDone")}
-          </button>
-        </div>
-      </Dialog>
+      <PairingFlow pairing={pairing} onClose={close} />
     </>
   );
 }

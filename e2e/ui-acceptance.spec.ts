@@ -275,17 +275,31 @@ test("UI acceptance", async ({ page, request }) => {
 
   // Conflict: a second device edits the same head.
   await page.getByRole("button", { name: "Settings" }).click();
-  const pairingResponse = page.waitForResponse((r) => r.url().includes("/pairings") && r.request().method() === "POST");
+  const pairingResponse = page.waitForResponse((r) => r.url().endsWith("/pairings") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Pair iPhone" }).click();
   await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
   await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   const pairing = await (await pairingResponse).json();
   await expect(page.getByRole("img", { name: "Pair iPhone" })).toBeVisible();
   await capture(page, "08-pairing");
-  await page.getByRole("button", { name: "Close code" }).click();
-  await capture(page, "09-settings");
+  const urlBeforeClaim = page.url();
   const claim = await (await request.post("/api/v1/pairings/claim", { data: { code: pairing.code, deviceName: "UI Phone" } })).json();
   const auth = { Authorization: `Bearer ${claim.deviceToken}` };
+  await expect(page.locator("dialog[open]").getByRole("heading", { name: "iPhone connected" })).toBeVisible();
+  await page.waitForTimeout(2100); // let the linked animation finish (≈1.9 s)
+  await capture(page, "08-pairing-linked");
+  await request.get(`/api/v1/vaults/${VAULT_ID}/manifest`, { headers: auth });
+  await expect(page.locator("dialog[open]").getByText("Synced", { exact: true })).toBeVisible({ timeout: 20_000 });
+  behaviours.push({
+    control: "Pairing QR (phone scans)",
+    claimed: "web confirms the iPhone, follows its first sync, then shows the vault counts",
+    observed: `heading “iPhone connected”, device “UI Phone”, final step “All set”, url ${page.url() === urlBeforeClaim ? "unchanged" : "changed"}`,
+    ok: (await page.locator("dialog[open]").getByText("UI Phone").count()) === 1 && page.url() === urlBeforeClaim,
+  });
+  await capture(page, "08-pairing-done");
+  await page.locator("dialog[open]").getByRole("button", { name: "Done" }).click();
+  await capture(page, "09-settings");
+
   const rows = (await (await request.get(`/api/v1/vaults/${VAULT_ID}/revisions?after=0`, { headers: auth })).json()).revisions;
   const key = await importAESKey(SYNC_KEY);
   const graph = new RevisionGraph(VAULT_ID);

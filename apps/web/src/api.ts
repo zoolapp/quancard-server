@@ -106,6 +106,12 @@ export const api = {
     call<{ revisionID: string; seq: number }>("PUT", `/api/v1/vaults/${vaultID}/revisions/${revisionID}`, undefined, bytes),
   createPairing: (vaultID: string, authKey: Uint8Array) =>
     call<{ code: string; expiresAt: number }>("POST", `/api/v1/vaults/${vaultID}/pairings`, { authKey: base64.encode(authKey) }),
+  pairingStatus: (code: string) =>
+    call<{
+      status: "pending" | "claimed" | "expired";
+      expiresAt: number;
+      device: { deviceID: string; name: string; createdAt: number; lastSeenAt: number | null } | null;
+    }>("POST", "/api/v1/pairings/status", { code }),
   devices: () =>
     call<{ devices: { deviceID: string; vaultID: string; name: string; createdAt: number; lastSeenAt: number | null }[] }>("GET", "/api/v1/devices"),
   revokeDevice: (deviceID: string) => call<void>("DELETE", `/api/v1/devices/${deviceID}`),

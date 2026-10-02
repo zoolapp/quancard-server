@@ -214,6 +214,30 @@ export function registerVaultRoutes(app: FastifyInstance, ctx: Context): void {
     return reply.code(201).send({ deviceID: claimed.deviceID, vaultID: claimed.vaultID, deviceToken: device.value });
   });
 
+  // The browser that showed the QR code asks whether it was redeemed, so it can confirm the
+  // pairing and follow the first sync. It proves possession of the code (sent in the body,
+  // never in a URL) and must be signed in as the account that created it.
+  app.post("/api/v1/pairings/status", async (request) => {
+    const { user } = ctx.requireSession(request);
+    const fields = body(request.body, ["code"]);
+    const code = typeof fields.code === "string" && /^[A-Za-z0-9_-]{32}$/.test(fields.code) ? fields.code : null;
+    if (!code) throw new ApiError(404, "notFound");
+    const pairing = ctx.db.prepare("SELECT user_id, vault_id, expires_at, claimed_at FROM pairings WHERE code_hash = ?").get(sha256(code)) as
+      | { user_id: string; vault_id: string; expires_at: number; claimed_at: number | null }
+      | undefined;
+    if (!pairing || pairing.user_id !== user.id) throw new ApiError(404, "notFound");
+    if (pairing.claimed_at === null) return { status: pairing.expires_at <= now() ? "expired" : "pending", expiresAt: pairing.expires_at, device: null };
+    // The claim inserted its device in the same transaction, with the same timestamp.
+    const device = ctx.db
+      .prepare("SELECT id, name, created_at, last_seen_at FROM devices WHERE user_id = ? AND vault_id = ? AND created_at = ? ORDER BY rowid DESC LIMIT 1")
+      .get(user.id, pairing.vault_id, pairing.claimed_at) as { id: string; name: string; created_at: number; last_seen_at: number | null } | undefined;
+    return {
+      status: "claimed",
+      expiresAt: pairing.expires_at,
+      device: device ? { deviceID: device.id, name: device.name, createdAt: device.created_at, lastSeenAt: device.last_seen_at } : null,
+    };
+  });
+
   app.get("/api/v1/devices", async (request) => {
     const { user } = ctx.requireSession(request);
     const rows = ctx.db.prepare("SELECT id, vault_id, name, created_at, last_seen_at FROM devices WHERE user_id = ? ORDER BY created_at").all(user.id) as {

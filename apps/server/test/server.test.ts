@@ -286,6 +286,29 @@ describe("accounts", () => {
   });
 });
 
+/** A second account on the same server, registered through an owner invite. */
+async function registerMember(app: Parameters<typeof registerOwner>[0], owner: Awaited<ReturnType<typeof registerOwner>>) {
+  const invite = await owner.client.request({ method: "POST", url: "/api/v1/invites", payload: {} });
+  const client = new Client(app);
+  const salt = randomBytes(16);
+  const secrets = await deriveAccountSecrets("member long password!", salt, argon2id);
+  const accountID = randomUUID();
+  const response = await client.request({
+    method: "POST",
+    url: "/api/v1/register",
+    payload: {
+      inviteCode: invite.json().code,
+      username: "member",
+      accountID,
+      kdfSalt: base64.encode(salt),
+      authKey: base64.encode(secrets.authKey),
+      wrappedAccountKey: base64.encode(await wrapAccountKey(randomBytes(32), accountID, secrets.kek)),
+    },
+  });
+  expect(response.statusCode).toBe(201);
+  return { client };
+}
+
 describe("vault data plane", () => {
   async function revisionBytes(vault: { vaultID: string; key: CryptoKey }) {
     const item = syntheticCard();
@@ -418,9 +441,19 @@ describe("vault data plane", () => {
     expect(pairing.statusCode).toBe(201);
     const code: string = pairing.json().code;
     expect(code).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    const status = () => owner.client.request({ method: "POST", url: "/api/v1/pairings/status", payload: { code } });
+    expect((await status()).json()).toMatchObject({ status: "pending", device: null });
     const phone = new Client(app);
     const claim = await phone.request({ method: "POST", url: "/api/v1/pairings/claim", payload: { code, deviceName: "Test iPhone" }, noOrigin: true });
     expect(claim.statusCode).toBe(201);
+    // The browser that showed the QR sees the claim and the paired device, nothing more.
+    const claimed = (await status()).json();
+    expect(claimed).toMatchObject({ status: "claimed", device: { deviceID: claim.json().deviceID, name: "Test iPhone", lastSeenAt: null } });
+    expect(JSON.stringify(claimed)).not.toContain(claim.json().deviceToken);
+    // Another account, or a malformed code, learns nothing.
+    const member = await registerMember(app, owner);
+    expect((await member.client.request({ method: "POST", url: "/api/v1/pairings/status", payload: { code } })).statusCode).toBe(404);
+    expect((await owner.client.request({ method: "POST", url: "/api/v1/pairings/status", payload: { code: "short" } })).statusCode).toBe(404);
     const deviceToken: string = claim.json().deviceToken;
     expect((await phone.request({ method: "POST", url: "/api/v1/pairings/claim", payload: { code }, noOrigin: true })).statusCode).toBe(410);
     const manifest = await phone.request({ method: "GET", url: `/api/v1/vaults/${vault.vaultID}/manifest`, bearer: deviceToken, noOrigin: true });
