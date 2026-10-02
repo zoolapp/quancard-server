@@ -8,6 +8,7 @@ import {
   type RevisionNode,
   randomUUID,
   type SyncKeyMaterial,
+  type SyncParent,
   sealManifest,
   sealRevision,
   type VaultArtwork,
@@ -122,6 +123,8 @@ export class VaultStore {
       const result = await api.revisions(this.vaultID, after);
       this.ensureOpen();
       for (const entry of result.revisions) {
+        // Locked mid-page: stop decrypting instead of finishing the page into a local array.
+        this.ensureOpen();
         try {
           incoming.push(await openRevision(base64.decode(entry.body), entry.revisionID, this.vaultID, key));
           this.failed.delete(entry.revisionID);
@@ -164,18 +167,25 @@ export class VaultStore {
     return this.graph.incompleteItems.size;
   }
 
-  /** Writes a successor of the current head(s). `resolving` is set only by the conflict screen. */
-  save(item: VaultItem | null, itemID: string, artwork: VaultArtwork | null, resolving = false): Promise<void> {
+  /**
+   * Writes a successor of the current head(s). `resolving` is set only by the
+   * conflict screen. `base` pins the parents to the heads an editor started
+   * from: if another device changed the item meanwhile (background sync pulled
+   * it in), the new revision forks from the old head and surfaces as a
+   * conflict instead of silently replacing the other device's edit.
+   */
+  save(item: VaultItem | null, itemID: string, artwork: VaultArtwork | null, resolving = false, base?: SyncParent[]): Promise<void> {
     // Writes are serialized per store so parents always reflect the previous write.
-    const run = this.writes.then(() => this.write(item, itemID, artwork, resolving));
+    const run = this.writes.then(() => this.write(item, itemID, artwork, resolving, base));
     this.writes = run.catch(() => undefined);
     return run;
   }
 
-  private async write(item: VaultItem | null, itemID: string, artwork: VaultArtwork | null, resolving: boolean): Promise<void> {
+  private async write(item: VaultItem | null, itemID: string, artwork: VaultArtwork | null, resolving: boolean, base?: SyncParent[]): Promise<void> {
     const key = this.requireKey();
     const upper = itemID.toUpperCase();
-    const parents = this.graph.parentsFor(upper, resolving);
+    const current = this.graph.parentsFor(upper, resolving);
+    const parents = base ?? current;
     // Reserve the counter before the first await.
     const counter = Math.max(this.graph.maximumCounter, this.lastCounter) + 1;
     this.lastCounter = counter;

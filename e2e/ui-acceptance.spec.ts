@@ -295,6 +295,11 @@ test("UI acceptance", async ({ page, request }) => {
   const target = nodes.find((n) => n.snapshot?.items[0]?.displayName === "Synthetic Everyday Visa");
   const snap = target?.snapshot;
   if (!target || !snap) throw new Error("missing target");
+  // The browser's draft starts before the phone edits: saving it must fork, never overwrite.
+  await nav.getByRole("button", { name: /Cards/ }).click();
+  await page.getByRole("button", { name: /Synthetic Everyday Visa/ }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Notes").fill("TEST_ONLY browser edit");
   const forked = await sealRevision(
     {
       version: 1,
@@ -315,10 +320,6 @@ test("UI acceptance", async ({ page, request }) => {
     headers: { ...auth, "Content-Type": "application/octet-stream" },
     data: Buffer.from(forked.ciphertext),
   });
-  await nav.getByRole("button", { name: /Cards/ }).click();
-  await page.getByRole("button", { name: /Synthetic Everyday Visa/ }).click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("Notes").fill("TEST_ONLY browser edit");
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Back" }).click();
   await page.getByRole("button", { name: "Refresh" }).click();

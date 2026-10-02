@@ -144,4 +144,23 @@ describe("VaultStore", () => {
     expect(store.unreadable).toBe(0);
     expect(store.items()[0]?.item.displayName).toBe("TEST_ONLY");
   });
+
+  it("an editor that started before a background sync forks instead of overwriting the other device", async () => {
+    const browser = await VaultStore.open(view(), { vaultID, key: new Uint8Array(keyBytes) });
+    const phone = await VaultStore.open(view(), { vaultID, key: new Uint8Array(keyBytes) });
+    const original = item();
+    await browser.save(original, original.id, null);
+    // The editor opens and records the heads it starts from.
+    const base = browser.items()[0]?.versions.map((v) => ({ revisionID: v.node.revision.revisionID, digest: v.node.digest }));
+    // Meanwhile the phone edits the same item, and background sync pulls it in.
+    await phone.refresh();
+    await phone.save({ ...original, displayName: "Edited on phone" }, original.id, null);
+    await browser.refresh();
+    expect(browser.items()[0]?.item.displayName).toBe("Edited on phone");
+    // Saving the stale draft must not silently replace the phone's edit.
+    await browser.save({ ...original, notes: "edited in browser" }, original.id, null, false, base);
+    const entry = browser.items()[0];
+    expect(entry?.conflict).toBe(true);
+    expect(entry?.versions.map((v) => v.item?.displayName).sort()).toEqual(["Edited on phone", "TEST_ONLY"]);
+  });
 });

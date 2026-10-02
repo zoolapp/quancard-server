@@ -118,7 +118,11 @@ export function RegisterView({ kind, inviteCode }: { kind: "setup" | "invite"; i
     setBusy(true);
     try {
       await register(kind, kind === "setup" ? token.trim() : (inviteCode ?? ""), username.trim(), password);
-      if (kind === "invite") history.replaceState(null, "", "/");
+      if (kind === "invite") {
+        history.replaceState(null, "", "/");
+        // replaceState fires no hashchange; tell the app the invite is used up.
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {

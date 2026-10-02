@@ -46,7 +46,7 @@
       "id": "V2-06",
       "title": "Demo UX: welcome card on createVault (not import); empty state illustration + load sample; Settings sample data load/remove",
       "executor": "main",
-      "verification": "e2e: new vault shows welcome card; load -> 20; request bodies contain no plaintext demo values",
+      "verification": "e2e: new vault shows welcome card, import shows none, load -> 15 cards + 6 accounts; vitest demo.test.ts asserts request bodies are ciphertext only",
       "passes": true,
       "evidence": "new vault seeds welcome card (UI gate behaviour 'Create a new vault'); import does not (vault.spec import path shows 1 card after first add); load/remove samples behaviours pass"
     },

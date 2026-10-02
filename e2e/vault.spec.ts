@@ -222,6 +222,12 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
     displayName: "Renamed On Phone",
     updatedAt: new Date().toISOString(),
   };
+  // The browser opens the editor first, so its draft starts from the current head.
+  await page.locator(".sidebar").getByRole("button", { name: /Cards/ }).click();
+  await page.getByRole("button", { name: /Synthetic Travel Card Edited/ }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Notes").fill("TEST_ONLY edited in browser");
+
   // The phone edits the same head the browser is about to edit: a real fork.
   const parents = graph.parentsFor(itemID);
   const forked = await sealRevision(
@@ -243,11 +249,8 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   });
   expect(put.status()).toBe(201);
 
-  // The browser has not refreshed, so its edit forks from the same parent.
-  await page.locator(".sidebar").getByRole("button", { name: /Cards/ }).click();
-  await page.getByRole("button", { name: /Synthetic Travel Card Edited/ }).click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("Notes").fill("TEST_ONLY edited in browser");
+  // The browser saves the draft it opened before the phone's edit. Whether or not background
+  // sync pulled the phone's revision in meanwhile, the save forks from the draft's base.
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Back" }).click();
   await page.getByRole("button", { name: "Refresh" }).click();

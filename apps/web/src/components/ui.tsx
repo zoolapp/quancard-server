@@ -131,7 +131,7 @@ export function Busy({ busy, children }: { busy: boolean; children: ComponentChi
       <span class="spinner" aria-hidden="true" /> <span>{t("deriving")}</span>
     </>
   ) : (
-    <>{children}</>
+    children
   );
 }
 

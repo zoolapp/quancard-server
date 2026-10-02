@@ -140,6 +140,27 @@ paired devices — revoke them explicitly in Settings. Revocation stops server a
 remove data or keys a device already has. If a QR leaked, create a new vault, move your items, pair
 your devices again and delete the old vault.
 
+### 2.9 Passkeys — **not implemented (proposal)**
+
+[passkey v1](docs/protocol/passkey-v1.md) would add a PRF-derived second wrap of the Account Key.
+It is not implemented. Before it ships, these boundaries must hold:
+- the PRF output never leaves the browser;
+- the passkey is bound to the server's hostname, so moving to a new domain invalidates every
+  passkey and the password remains required;
+- a prebuilt iOS app cannot use passkeys for arbitrary self-hosted domains;
+- removing a passkey cannot undo exposure for someone who already holds an old wrapped copy and
+  the authenticator.
+
+The [independent review](docs/reviews/2026-10-02-passkey-second-opinion.md) lists the
+preconditions.
+
+### 2.10 Concurrent edits from several devices — **defended**
+
+The web client syncs in the background: on focus, and every 60 seconds while visible. An
+editor saves on top of the heads it was opened from, never on the newest head. If another device
+changed the item in the meantime, the result is a visible conflict, never a silent overwrite.
+The reviewer flagged this on 2026-10-02 and it is covered by `apps/web/test/vault.test.ts`.
+
 ## 3. Deletion
 
 Deleting an item writes an encrypted tombstone. Earlier encrypted versions stay in the sync history

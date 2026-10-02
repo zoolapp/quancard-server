@@ -87,6 +87,8 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
   const [item, setItem] = useState<VaultItem>(() => structuredClone(existing?.item ?? emptyItem(kind)));
   const [artwork, setArtwork] = useState<VaultArtwork | null>(existing?.artwork ?? null);
   const [templateTouched, setTemplateTouched] = useState(!!existing);
+  // The heads this edit starts from; saving forks from them so concurrent edits become a conflict.
+  const [base] = useState(() => existing?.versions.map((v) => ({ revisionID: v.node.revision.revisionID, digest: v.node.digest })));
   const [tags, setTags] = useState(item.tags.join(", "));
   const [currencies, setCurrencies] = useState(item.bankAccount?.currencies.join(", ") ?? "");
   const [error, setError] = useState("");
@@ -166,7 +168,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
     setBusy(true);
     setError("");
     try {
-      await store.save(draft, existing?.itemID ?? draft.id, artwork);
+      await store.save(draft, existing?.itemID ?? draft.id, artwork, false, base);
       revision.value++;
       goBack();
     } catch (e) {

@@ -72,7 +72,12 @@ describe("background lock", () => {
 describe("idle auto-lock", () => {
   it("honours the chosen duration and remembers it", async () => {
     const stored: Record<string, string> = {};
-    vi.stubGlobal("localStorage", { getItem: (k: string) => stored[k] ?? null, setItem: (k: string, v: string) => void (stored[k] = v) });
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => stored[k] ?? null,
+      setItem: (k: string, v: string) => {
+        stored[k] = v;
+      },
+    });
     const session = await readySession();
     session.setAutoLock(1);
     expect(stored["quancard.autoLockMinutes"]).toBe("1");
