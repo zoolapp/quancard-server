@@ -1,0 +1,730 @@
+{
+  "version": "2026.10.01",
+  "issuers": [
+    {
+      "id": "issuer.hsbc",
+      "name": "HSBC",
+      "region": "GB",
+      "kind": "bank",
+      "aliases": ["hsbc", "汇丰", "滙豐"],
+      "colors": ["#8F0A14", "#3D0409"],
+      "accent": "#FFFFFF",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.bofa",
+      "name": "Bank of America",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["bank of america", "bofa", "美国银行", "美國銀行"],
+      "colors": ["#0E2B5C", "#7A1020"],
+      "accent": "#F5D0D0",
+      "decor": "orbit"
+    },
+    {
+      "id": "issuer.wellsfargo",
+      "name": "Wells Fargo",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["wells fargo", "富国银行"],
+      "colors": ["#B31B1B", "#4A0808"],
+      "accent": "#FFD24D",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.chase",
+      "name": "Chase",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["chase", "jpmorgan", "摩根大通"],
+      "colors": ["#0B3D91", "#061F4D"],
+      "accent": "#CFE1FF",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.citi",
+      "name": "Citi",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["citi", "citibank", "花旗"],
+      "colors": ["#0A4C8C", "#062A50"],
+      "accent": "#FF8A8A",
+      "decor": "wave"
+    },
+    {
+      "id": "issuer.amex",
+      "logoAsset": "network-amex",
+      "name": "American Express",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["american express", "amex", "美国运通", "美國運通"],
+      "colors": ["#2A5F8C", "#123048"],
+      "accent": "#DDEEFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.dbs",
+      "name": "DBS",
+      "region": "SG",
+      "kind": "bank",
+      "aliases": ["dbs", "posb", "星展", "dbs bank", "星展銀行"],
+      "colors": ["#A01418", "#2A0507"],
+      "accent": "#FFFFFF",
+      "decor": "wave"
+    },
+    {
+      "id": "issuer.ocbc",
+      "name": "OCBC",
+      "region": "SG",
+      "kind": "bank",
+      "aliases": ["ocbc", "华侨银行", "華僑銀行", "oversea-chinese banking"],
+      "colors": ["#B01E1E", "#3A0808"],
+      "accent": "#FFE1E1",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.uob",
+      "name": "UOB",
+      "region": "SG",
+      "kind": "bank",
+      "aliases": ["uob", "大华银行", "大華銀行", "united overseas bank"],
+      "colors": ["#0B2A5C", "#7A0E1E"],
+      "accent": "#FFFFFF",
+      "decor": "orbit"
+    },
+    {
+      "id": "issuer.sc",
+      "name": "Standard Chartered",
+      "region": "GB",
+      "kind": "bank",
+      "aliases": ["standard chartered", "渣打", "渣打銀行", "standard chartered bank"],
+      "colors": ["#0B6E4F", "#0A3D8F"],
+      "accent": "#CFF5E6",
+      "decor": "wave"
+    },
+    {
+      "id": "issuer.hangseng",
+      "name": "Hang Seng",
+      "region": "HK",
+      "kind": "bank",
+      "aliases": ["hang seng", "恒生", "恆生", "hang seng bank"],
+      "colors": ["#0F6B45", "#063622"],
+      "accent": "#D6F5E7",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.icbc",
+      "name": "ICBC",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["icbc", "工商银行", "工行", "industrial and commercial bank", "中国工商银行", "工商銀行"],
+      "colors": ["#8E0F1A", "#3A0509"],
+      "accent": "#FFD9DB",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.ccb",
+      "name": "China Construction Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["ccb", "建设银行", "建行", "china construction bank", "建設銀行"],
+      "colors": ["#0E3F8A", "#061E45"],
+      "accent": "#CFE0FF",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.boc",
+      "name": "Bank of China",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["bank of china", "boc", "中国银行", "中國銀行", "中银"],
+      "colors": ["#8A0C14", "#2E0407"],
+      "accent": "#FFFFFF",
+      "decor": "wave"
+    },
+    {
+      "id": "issuer.abc",
+      "name": "Agricultural Bank of China",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["agricultural bank", "abc bank", "农业银行", "农行", "農業銀行"],
+      "colors": ["#0A6B4A", "#053323"],
+      "accent": "#D8F3E8",
+      "decor": "wave"
+    },
+    {
+      "id": "issuer.cmb",
+      "name": "China Merchants Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["china merchants", "cmb", "招商银行", "招行", "招商銀行"],
+      "colors": ["#A8121C", "#3B0508"],
+      "accent": "#FFD6D9",
+      "decor": "orbit"
+    },
+    {
+      "id": "issuer.comm",
+      "name": "Bank of Communications",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["bank of communications", "bocom", "交通银行", "交行", "交通銀行"],
+      "colors": ["#0B3C7A", "#051C3A"],
+      "accent": "#D3E4FF",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.citic",
+      "name": "China CITIC Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["citic", "中信银行", "中信", "中信銀行"],
+      "colors": ["#8E0E18", "#360508"],
+      "accent": "#FFD5D8",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.pingan",
+      "name": "Ping An",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["ping an", "pingan", "平安银行", "平安", "平安銀行"],
+      "colors": ["#B24A0A", "#4A1D03"],
+      "accent": "#FFE3C9",
+      "decor": "orbit"
+    },
+    {
+      "id": "issuer.wise",
+      "name": "Wise",
+      "region": "GB",
+      "kind": "fintech",
+      "aliases": ["wise", "transferwise"],
+      "colors": ["#1E5A3E", "#0B2C1D"],
+      "accent": "#9FE870",
+      "decor": "dots"
+    },
+    {
+      "id": "issuer.revolut",
+      "name": "Revolut",
+      "region": "GB",
+      "kind": "fintech",
+      "aliases": ["revolut"],
+      "colors": ["#1C1D22", "#050506"],
+      "accent": "#FFFFFF",
+      "decor": "sheen"
+    },
+    {
+      "id": "issuer.mox",
+      "name": "Mox",
+      "region": "HK",
+      "kind": "fintech",
+      "aliases": ["mox", "mox bank"],
+      "colors": ["#1F1B2E", "#0A0812"],
+      "accent": "#B9F2E6",
+      "decor": "dots"
+    },
+    {
+      "id": "issuer.za",
+      "name": "ZA Bank",
+      "region": "HK",
+      "kind": "fintech",
+      "aliases": ["za bank", "众安银行", "眾安銀行"],
+      "colors": ["#0F5C3F", "#062A1D"],
+      "accent": "#CDEFD8",
+      "decor": "dots"
+    },
+    {
+      "id": "issuer.spdb",
+      "name": "SPD Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["spdb", "spd bank", "shanghai pudong development", "浦发", "浦發", "上海浦东发展"],
+      "colors": ["#0A3B8C", "#06214F"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.cmbc",
+      "name": "China Minsheng Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["cmbc", "minsheng", "民生"],
+      "colors": ["#0A5AA0", "#062F55"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.psbc",
+      "name": "Postal Savings Bank of China",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["psbc", "postal savings", "邮储", "邮政储蓄", "郵儲", "郵政儲蓄"],
+      "colors": ["#0F7A3E", "#064A24"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.ceb",
+      "name": "China Everbright Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["china everbright", "everbright bank", "光大"],
+      "colors": ["#5B2C82", "#2C1240"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.cib",
+      "name": "Industrial Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["industrial bank", "cib bank", "兴业", "興業"],
+      "colors": ["#0B4F9B", "#062A55"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.huaxia",
+      "name": "Hua Xia Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["hua xia", "huaxia", "华夏", "華夏"],
+      "colors": ["#9A1B1F", "#3D0A0C"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.cgb",
+      "name": "China Guangfa Bank",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["china guangfa", "guangfa", "cgb bank", "广发", "廣發"],
+      "colors": ["#A3121C", "#3B0508"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.webank",
+      "name": "WeBank",
+      "region": "CN",
+      "kind": "fintech",
+      "aliases": ["webank", "微众", "微眾"],
+      "colors": ["#0E4C93", "#062650"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.mybank",
+      "name": "MYbank",
+      "region": "CN",
+      "kind": "fintech",
+      "aliases": ["mybank", "网商", "網商"],
+      "colors": ["#0B5E99", "#063352"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bob",
+      "name": "Bank of Beijing",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["bank of beijing", "北京银行", "北京銀行"],
+      "colors": ["#8F1A1F", "#3A0A0C"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bosc",
+      "name": "Bank of Shanghai",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["bank of shanghai", "bosc", "上海银行", "上海銀行"],
+      "colors": ["#0A4E8F", "#052A4E"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.nbcb",
+      "name": "Bank of Ningbo",
+      "region": "CN",
+      "kind": "bank",
+      "aliases": ["bank of ningbo", "nbcb", "宁波银行", "寧波銀行"],
+      "colors": ["#A65A0C", "#4A2705"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bochk",
+      "name": "BOC Hong Kong",
+      "region": "HK",
+      "kind": "bank",
+      "aliases": [
+        "bochk",
+        "bank of china (hong kong)",
+        "bank of china hong kong",
+        "中银香港",
+        "中銀香港",
+        "中国银行(香港)",
+        "中國銀行(香港)",
+        "中国银行（香港）",
+        "中國銀行（香港）",
+        "boc hong kong",
+        "boc (hong kong)"
+      ],
+      "colors": ["#7D0A12", "#2A0406"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.usbank",
+      "name": "U.S. Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["u.s. bank", "us bank", "usbank", "u.s. bancorp", "合众银行", "合眾銀行"],
+      "colors": ["#0C2074", "#06103B"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.capitalone",
+      "name": "Capital One",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["capital one", "capitalone", "第一资本", "第一資本"],
+      "colors": ["#0A3D6B", "#051F38"],
+      "accent": "#D22E1E",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.pnc",
+      "name": "PNC Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["pnc"],
+      "colors": ["#0A4E8F", "#052A4E"],
+      "accent": "#F58025",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.truist",
+      "name": "Truist",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["truist"],
+      "colors": ["#4E2A75", "#2A1540"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.tdbank",
+      "name": "TD Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["td bank", "toronto-dominion", "toronto dominion", "道明"],
+      "colors": ["#2E8B3F", "#0E4A1F"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.marcus",
+      "name": "Marcus by Goldman Sachs",
+      "region": "US",
+      "kind": "fintech",
+      "aliases": ["marcus", "goldman sachs", "高盛"],
+      "colors": ["#1F3A6B", "#0E1F3D"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.ally",
+      "name": "Ally",
+      "region": "US",
+      "kind": "fintech",
+      "aliases": ["ally bank", "ally financial", "ally"],
+      "colors": ["#481149", "#240924"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.schwab",
+      "name": "Charles Schwab",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["charles schwab", "schwab", "嘉信"],
+      "colors": ["#0868A0", "#043A5B"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.chime",
+      "name": "Chime",
+      "region": "US",
+      "kind": "fintech",
+      "aliases": ["chime"],
+      "colors": ["#16875A", "#0A4A32"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.sofi",
+      "name": "SoFi",
+      "region": "US",
+      "kind": "fintech",
+      "aliases": ["sofi"],
+      "colors": ["#0F7A8C", "#084552"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.citizens",
+      "name": "Citizens Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["citizens bank", "citizens financial", "citizens"],
+      "colors": ["#0B7A3E", "#064A24"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.fifththird",
+      "name": "Fifth Third Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["fifth third", "5/3 bank", "第五三"],
+      "colors": ["#0A3B7A", "#051E40"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.discoverbank",
+      "logoAsset": "network-discover",
+      "name": "Discover Bank",
+      "region": "US",
+      "kind": "bank",
+      "aliases": ["discover bank", "discover"],
+      "colors": ["#C2500A", "#5A2404"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.maybank",
+      "name": "Maybank",
+      "region": "SG",
+      "kind": "bank",
+      "aliases": ["maybank", "malayan banking", "马来亚银行", "馬來亞銀行"],
+      "colors": ["#8A6A05", "#4A3803"],
+      "accent": "#FFD700",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.trustbank",
+      "name": "Trust Bank",
+      "region": "SG",
+      "kind": "fintech",
+      "aliases": ["trust bank", "trustbank"],
+      "colors": ["#1B1B1F", "#050506"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.gxs",
+      "name": "GXS Bank",
+      "region": "SG",
+      "kind": "fintech",
+      "aliases": ["gxs"],
+      "colors": ["#4E1F9E", "#260E52"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.maribank",
+      "name": "MariBank",
+      "region": "SG",
+      "kind": "fintech",
+      "aliases": ["maribank", "mari bank"],
+      "colors": ["#B2401A", "#5A1E0A"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.livi",
+      "name": "livi Bank",
+      "region": "HK",
+      "kind": "fintech",
+      "aliases": ["livi"],
+      "colors": ["#0B3A5C", "#052033"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.octopus",
+      "name": "Octopus",
+      "region": "HK",
+      "kind": "fintech",
+      "aliases": ["octopus", "八達通", "八达通"],
+      "colors": ["#B8541A", "#5A2A0C"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.welab",
+      "name": "WeLab Bank",
+      "region": "HK",
+      "kind": "fintech",
+      "aliases": ["welab", "匯立"],
+      "colors": ["#1C4C8C", "#0D2647"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.okx",
+      "name": "OKX",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["okx", "欧易"],
+      "colors": ["#1A1A1A", "#050505"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.binance",
+      "name": "Binance",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["binance", "币安"],
+      "colors": ["#8A6A00", "#3D2F00"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bybit",
+      "name": "Bybit",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["bybit"],
+      "colors": ["#1F1F1F", "#050505"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.coinbase",
+      "name": "Coinbase",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["coinbase"],
+      "colors": ["#0A46E4", "#05237A"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.cryptocom",
+      "name": "Crypto.com",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["crypto.com"],
+      "colors": ["#0B2A5C", "#051530"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bitget",
+      "name": "Bitget",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["bitget"],
+      "colors": ["#0F6B77", "#063640"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.kraken",
+      "name": "Kraken",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["kraken"],
+      "colors": ["#4B2C8A", "#26154A"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.kucoin",
+      "name": "KuCoin",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["kucoin"],
+      "colors": ["#0F7A6F", "#063D38"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.gate",
+      "name": "Gate",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["gate.io", "gate io", "gate card"],
+      "colors": ["#1A57C8", "#0A2A64"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.mexc",
+      "name": "MEXC",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["mexc"],
+      "colors": ["#0A5C4A", "#042E25"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.htx",
+      "name": "HTX",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["htx", "huobi", "火币"],
+      "colors": ["#0A5A9E", "#052D50"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.bitpanda",
+      "name": "Bitpanda",
+      "region": "",
+      "kind": "exchange",
+      "aliases": ["bitpanda"],
+      "colors": ["#0F6E4E", "#073A2A"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.paypal",
+      "name": "PayPal",
+      "region": "US",
+      "kind": "fintech",
+      "logoAsset": "wallet-paypal",
+      "aliases": ["paypal", "pay pal", "贝宝", "貝寶"],
+      "colors": ["#003087", "#0070BA"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.antbank",
+      "name": "Ant Bank (Hong Kong)",
+      "region": "HK",
+      "kind": "bank",
+      "aliases": ["ant bank hk", "ant bank (hong kong)", "ant bank hong kong", "蚂蚁银行（香港）", "螞蟻銀行（香港）", "蚂蚁银行(香港)", "螞蟻銀行(香港)"],
+      "colors": ["#001F4D", "#0067FF"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    },
+    {
+      "id": "issuer.chonghing",
+      "name": "Chong Hing Bank",
+      "region": "HK",
+      "kind": "bank",
+      "aliases": ["chong hing bank", "chong hing", "创兴银行", "創興銀行"],
+      "colors": ["#F26522", "#F99D1C"],
+      "accent": "#FFFFFF",
+      "decor": "none"
+    }
+  ]
+}

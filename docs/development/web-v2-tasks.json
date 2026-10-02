@@ -1,0 +1,128 @@
+{
+  "goal": "QuanCard web v2: brand, demo data, desktop SaaS shell, card-face parity, passkey",
+  "rule": "One task in progress at a time; flip passes only after the verification actually ran; record evidence.",
+  "tasks": [
+    {
+      "id": "V2-01",
+      "title": "Brand asset pipeline: otter mark/guardian/kaka SVG/AppIcon in apps/web (WebP, hashed), favicon, apple-touch-icon, manifest; SOURCES note",
+      "executor": "main",
+      "verification": "pnpm --filter @quancard/web build; dist/assets contains otter+guardian webp; /manifest.webmanifest served as application/manifest+json; no DemoCardFaces file in repo",
+      "passes": false
+    },
+    {
+      "id": "V2-02",
+      "title": "Auth shell redesign: brand lockup (otter + wordmark + tagline), sign-in/setup/invite/no-vault; unlock uses guardian pose; dark mode",
+      "executor": "main",
+      "verification": "UI gate screens desktop+mobile+dark PASS; contrast AA",
+      "passes": false
+    },
+    {
+      "id": "V2-03",
+      "title": "Card-face parity: IssuerPalettes.json + CardDesignMatcher + decor + quancard-welcome template; editor suggests issuer template",
+      "executor": "main",
+      "verification": "vitest: iOS issuer alias cases reproduce; issuer.hsbc fill #8F0A14; welcome template renders kaka mark",
+      "passes": true,
+      "evidence": "codex seat (provider=codex) implemented templates.ts/issuers.json/decor; main reviewed diff; apps/web/test/templates.test.ts passes (408 web tests)"
+    },
+    {
+      "id": "V2-04",
+      "title": "Network/issuer/wallet marks and region flags",
+      "executor": "main",
+      "verification": "BLOCKED on user trademark decision; fallback: monogram + flag emoji-free text",
+      "passes": false
+    },
+    {
+      "id": "V2-05",
+      "title": "Demo data module mirroring iOS DemoData (same IDs, tags), saved via encrypted revisions",
+      "executor": "main",
+      "verification": "vitest: payload codec strict; IDs equal iOS; seed twice no duplicates; remove tombstones tagged only",
+      "passes": true,
+      "evidence": "apps/web/src/demo.ts; apps/web/test/demo.test.ts: iOS IDs match, strict codec, ciphertext-only bodies, no duplicates, remove only tagged"
+    },
+    {
+      "id": "V2-06",
+      "title": "Demo UX: welcome card on createVault (not import); empty state illustration + load sample; Settings sample data load/remove",
+      "executor": "main",
+      "verification": "e2e: new vault shows welcome card; load -> 20; request bodies contain no plaintext demo values",
+      "passes": false
+    },
+    {
+      "id": "V2-07",
+      "title": "Desktop app shell (>=1024): sidebar with brand, Cards/Accounts, region/favorite filters, settings, lock; Cmd/Ctrl+K search dialog; mobile unchanged",
+      "executor": "main",
+      "verification": "screenshots desktop show sidebar; Cmd+K opens search; no horizontal overflow at 390",
+      "passes": false
+    },
+    {
+      "id": "V2-08",
+      "title": "Detail/editor as side panel/dialog on desktop; full page on mobile",
+      "executor": "main",
+      "verification": "desktop screenshot shows panel; mobile unchanged",
+      "passes": false
+    },
+    {
+      "id": "V2-09",
+      "title": "Settings polish: About, auto-lock duration, sample data section",
+      "executor": "main",
+      "verification": "screenshots; e2e auto-lock",
+      "passes": false
+    },
+    {
+      "id": "V2-10",
+      "title": "Hardening: /api/v1/status capabilities; refresh on visibilitychange; shortcuts; PWA manifest",
+      "executor": "main",
+      "verification": "server test status shape; manifest valid; CSP unchanged",
+      "passes": false
+    },
+    {
+      "id": "V2-11",
+      "title": "Passkey spec docs/protocol/passkey-v1.md + THREAT_MODEL + second opinion in docs/reviews",
+      "executor": "main+codex(second-opinion)",
+      "verification": "review file with 一致/不一致/我信谁",
+      "passes": true,
+      "evidence": "docs/protocol/passkey-v1.md + docs/reviews/2026-10-02-passkey-second-opinion.md (codex 3/5, synthesis 一致/不一致/我信谁); P1 deferred"
+    },
+    {
+      "id": "V2-12",
+      "title": "Passkey server implementation",
+      "executor": "main",
+      "verification": "BLOCKED on user approval of @simplewebauthn/server dependency + TOTP bypass policy",
+      "passes": false
+    },
+    {
+      "id": "V2-13",
+      "title": "Passkey web client",
+      "executor": "main",
+      "verification": "BLOCKED on V2-12",
+      "passes": false
+    },
+    {
+      "id": "V2-14",
+      "title": "i18n completeness en/zh",
+      "executor": "main",
+      "verification": "test asserts en and zh key sets equal",
+      "passes": false
+    },
+    {
+      "id": "V2-15",
+      "title": "UI acceptance gate v2: desktop/mobile/dark screenshots, regression vs docs/screenshots/mvp",
+      "executor": "main",
+      "verification": "ui-acceptance REPORT PASS",
+      "passes": false
+    },
+    {
+      "id": "V2-16",
+      "title": "Docs: README, CHANGELOG 0.2.0 (unreleased), THIRD_PARTY_NOTICES, roadmap/hardening doc",
+      "executor": "main",
+      "verification": "relative link check; git diff --check",
+      "passes": false
+    },
+    {
+      "id": "V2-17",
+      "title": "Verification: fable-reviewer + goal-verifier",
+      "executor": "goal-verifier+fable-reviewer",
+      "verification": "both PASS",
+      "passes": false
+    }
+  ]
+}

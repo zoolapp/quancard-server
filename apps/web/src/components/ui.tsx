@@ -3,8 +3,10 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import qrcode from "qrcode-generator";
 import { APIError } from "../api.js";
+import otterURL from "../assets/otter-mark.webp";
 import { type MessageKey, t, tEnum } from "../i18n.js";
 import { confirmPassword, SupersededError } from "../session.js";
+import { BUILTIN_TEMPLATES, templateFor, templateIDFor, WELCOME_TEMPLATE_ID } from "../templates.js";
 import { VaultClosedError } from "../vault.js";
 
 /* Icons: thin stroked line icons, drawn inline (no icon font, no external requests). */
@@ -213,38 +215,10 @@ export function QRCanvas({ value, label }: { value: string; label: string }) {
 
 /* Card face: user photo, or an original flat template. Text is never the only source of meaning. */
 
-const TEMPLATES: Record<string, { fill: string; accent: string }> = {
-  graphite: { fill: "rgb(41,43,51)", accent: "#fff" },
-  azure: { fill: "rgb(20,51,115)", accent: "rgb(242,209,115)" },
-  ember: { fill: "rgb(41,33,36)", accent: "rgb(255,158,77)" },
-  nebula: { fill: "rgb(51,23,97)", accent: "rgb(115,230,242)" },
-  carbon: { fill: "rgb(23,28,31)", accent: "rgb(89,242,166)" },
-  vermilion: { fill: "rgb(140,31,26)", accent: "rgb(255,217,153)" },
-  ocean: { fill: "rgb(13,82,140)", accent: "rgb(166,217,255)" },
-  sunset: { fill: "rgb(217,89,64)", accent: "rgb(255,217,179)" },
-  forest: { fill: "rgb(26,97,71)", accent: "rgb(191,242,204)" },
-  plum: { fill: "rgb(97,41,128)", accent: "rgb(230,204,255)" },
-  gold: { fill: "rgb(140,107,46)", accent: "rgb(255,242,204)" },
-  silver: { fill: "rgb(92,97,110)", accent: "#fff" },
-  sakura: { fill: "rgb(168,71,112)", accent: "rgb(255,230,242)" },
-};
+export const TEMPLATE_IDS = BUILTIN_TEMPLATES.map((template) => template.id);
 
-export const TEMPLATE_IDS = Object.keys(TEMPLATES);
-
-export function suggestTemplate(network: string, fundingType: string): string {
-  if (fundingType === "cryptoLinked") return network === "mastercard" ? "carbon" : "nebula";
-  const byNetwork: Record<string, string> = {
-    visa: "azure",
-    mastercard: "ember",
-    amex: "silver",
-    unionPay: "vermilion",
-    jcb: "sakura",
-    discover: "gold",
-    dinersClub: "gold",
-    rupay: "forest",
-    mir: "plum",
-  };
-  return byNetwork[network] ?? "graphite";
+export function suggestTemplate(network: string, fundingType: string, institutionName?: string | null): string {
+  return templateIDFor(institutionName, network, fundingType);
 }
 
 export function last4(value: string | null | undefined): string | null {
@@ -267,19 +241,31 @@ export function useArtworkURL(artwork: VaultArtwork | null): string | null {
 
 export function CardFace({ item, artwork, showSuffix = true }: { item: VaultItem; artwork: VaultArtwork | null; showSuffix?: boolean }) {
   const url = useArtworkURL(artwork);
-  const template = TEMPLATES[item.artworkTemplateID] ?? (TEMPLATES.graphite as { fill: string; accent: string });
+  const welcome = item.artworkTemplateID === WELCOME_TEMPLATE_ID;
+  const template = templateFor(welcome ? "graphite" : item.artworkTemplateID);
   const card = item.paymentCard;
   const suffix = last4(card?.pan);
   const style = { "--fill": template.fill, "--accent": template.accent } as Record<string, string>;
   return (
     <div class={`card-face${url ? " has-photo" : ""}`} style={style} aria-hidden="true">
       {url && <img src={url} alt="" draggable={false} />}
+      {!url && template.decor !== "none" && (
+        <div class={`face-decor-layer face-decor-${template.decor}`}>
+          {template.decor === "wave" && (
+            <svg viewBox="0 0 400 250" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M-40 100 C80 20 220 210 440 100 L440 125 C220 235 80 45-40 125Z" />
+              <path d="M-40 150 C100 65 240 255 440 150 L440 168 C240 273 100 83-40 168Z" />
+            </svg>
+          )}
+        </div>
+      )}
+      {!url && welcome && <img class="face-decor-welcome" src={otterURL} alt="" draggable={false} />}
       <div class="face-top">
-        <span class="face-issuer">{item.institutionName ?? item.displayName}</span>
+        <span class="face-issuer">{welcome ? "QuanCard" : (item.institutionName ?? item.displayName)}</span>
       </div>
       <div class="face-bottom">
         <span class="face-number">{showSuffix && suffix ? `•••• ${suffix}` : ""}</span>
-        <span class="face-network">{card ? tEnum("network", card.network) : ""}</span>
+        {!welcome && <span class="face-network">{card ? tEnum("network", card.network) : ""}</span>}
       </div>
     </div>
   );

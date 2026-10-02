@@ -5,6 +5,7 @@ import { CardFace, errorMessage, Field, Icon, suggestTemplate, TEMPLATE_IDS } fr
 import { regionName, t, tEnum } from "../i18n.js";
 import { goBack } from "../router.js";
 import { revision, vault } from "../session.js";
+import { ISSUERS } from "../templates.js";
 
 /**
  * Add/edit form for cards and bank accounts. Edits start from the current
@@ -95,7 +96,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
   const updateCard = (patch: Partial<NonNullable<VaultItem["paymentCard"]>>) =>
     setItem((current) => {
       const card = { ...(current.paymentCard as NonNullable<VaultItem["paymentCard"]>), ...patch };
-      const artworkTemplateID = templateTouched ? current.artworkTemplateID : suggestTemplate(card.network, card.fundingType);
+      const artworkTemplateID = templateTouched ? current.artworkTemplateID : suggestTemplate(card.network, card.fundingType, current.institutionName);
       return { ...current, paymentCard: card, artworkTemplateID };
     });
   const updateAccount = (patch: Partial<NonNullable<VaultItem["bankAccount"]>>) =>
@@ -103,6 +104,8 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
 
   const card = item.paymentCard;
   const account = item.bankAccount;
+  const currentIssuer = ISSUERS.find((issuer) => issuer.id === item.artworkTemplateID);
+  const templateIDs = currentIssuer ? [...TEMPLATE_IDS, currentIssuer.id] : TEMPLATE_IDS;
 
   const choosePhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -194,7 +197,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
           {card && (
             <section class="settings-section" aria-label={t("cardFace")}>
               <div class="chips wrap" role="toolbar" aria-label={t("template")}>
-                {TEMPLATE_IDS.map((id) => (
+                {templateIDs.map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -202,7 +205,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
                     aria-pressed={item.artworkTemplateID === id}
                     onClick={() => (setTemplateTouched(true), update({ artworkTemplateID: id }))}
                   >
-                    {tEnum("template", id)}
+                    {currentIssuer?.id === id ? currentIssuer.name : tEnum("template", id)}
                   </button>
                 ))}
               </div>
@@ -233,7 +236,13 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
               class="input"
               value={item.institutionName ?? ""}
               maxLength={200}
-              onInput={(e) => update({ institutionName: orNull(e.currentTarget.value) })}
+              onInput={(e) => {
+                const institutionName = orNull(e.currentTarget.value);
+                update({
+                  institutionName,
+                  ...(!templateTouched && card ? { artworkTemplateID: suggestTemplate(card.network, card.fundingType, institutionName) } : {}),
+                });
+              }}
             />
           </Field>
           <Field label={t("region")} help={item.country && /^[A-Za-z]{2}$/.test(item.country) ? regionName(item.country) : t("regionHelp")}>
