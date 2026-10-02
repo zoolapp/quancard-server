@@ -478,6 +478,19 @@ export function welcomeItem(locale: Locale, now = new Date().toISOString()): Vau
   return cardItem(WELCOME, locale, now, SAMPLE[locale]);
 }
 
+/** Decorative preview faces (iOS WelcomeCard.previews): original templates, no issuer names. Never saved. */
+export function previewItems(locale: Locale, now = new Date().toISOString()): VaultItem[] {
+  const preview = (id: string, name: Text, template: string): VaultItem => ({
+    ...cardItem({ ...WELCOME, id, name, institution: tx("DEMO", "DEMO"), template, notes: undefined }, locale, now, SAMPLE[locale]),
+    lifecycle: "active",
+  });
+  return [
+    preview("00000000-0000-4000-8000-000000000024", tx("Travel card · Sample", "旅行卡 · 示例"), "azure"),
+    preview("00000000-0000-4000-8000-000000000025", tx("Everyday card · Sample", "日常卡 · 示例"), "carbon"),
+    welcomeItem(locale, now),
+  ];
+}
+
 /** The full catalogue: the welcome card, 14 cards and 6 accounts. */
 export function sampleItems(locale: Locale, now = new Date().toISOString()): VaultItem[] {
   const tag = SAMPLE[locale];

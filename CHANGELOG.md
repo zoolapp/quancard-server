@@ -12,7 +12,7 @@ Web v2: a branded, desktop-class web app.
 - Detail and editor open as a side sheet over the collection (full screen on phones); background
   is inert while a sheet is open.
 - QuanCard brand: otter lockup, guardian otter on the lock screen, kaka favicon, app icons and a
-  web app manifest; split-screen sign-in with issuer card faces.
+  web app manifest; split-screen sign-in with original preview card faces.
 - Card faces match iOS: 71 issuer palettes with decor, short issuer names, the QuanCard welcome
   card face; the editor suggests the issuer template from the bank name.
 - Sample data mirroring the iOS catalogue (same IDs and tags): a new vault starts with the

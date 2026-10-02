@@ -184,6 +184,8 @@ export class VaultStore {
   private async write(item: VaultItem | null, itemID: string, artwork: VaultArtwork | null, resolving: boolean, base?: SyncParent[]): Promise<void> {
     const key = this.requireKey();
     const upper = itemID.toUpperCase();
+    // Always ask the graph: it refuses to write on top of an unresolved conflict or missing
+    // parents, even when `base` is given (the result is then used only for that check).
     const current = this.graph.parentsFor(upper, resolving);
     const parents = base ?? current;
     // Reserve the counter before the first await.

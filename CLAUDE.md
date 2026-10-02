@@ -12,7 +12,8 @@ pnpm exec playwright test e2e/vault.spec.ts                       # main story, 
 UI_ACCEPTANCE=1 pnpm exec playwright test e2e/ui-acceptance.spec.ts # UI gate, separate run
 ```
 
-The server caches `index.html` at start-up: restart it after every web build.
+The server caches `index.html` at start-up: restart it after every web build. Run one Playwright
+process at a time: both specs use port 8788 and `test-results/`.
 
 ## UI 基准
 

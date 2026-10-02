@@ -135,7 +135,8 @@
       "title": "Verification: fable-reviewer + goal-verifier",
       "executor": "goal-verifier+fable-reviewer",
       "verification": "both PASS",
-      "passes": false
+      "passes": true,
+      "evidence": "fable-reviewer: FAIL (2 blockers: lint at commit, stale-editor overwrite) -> fixed in cb8d4aa -> PASS, no blockers. goal-verifier: FAIL (lint, V2-17 pending) -> re-run on cb8d4aa: all items PASS except V2-17 flip. Final clean run: lint 0, tests 24/416/34, vault.spec 1 passed, UI gate 520/520 + 17/17."
     }
   ]
 }

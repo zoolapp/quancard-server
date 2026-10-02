@@ -5,7 +5,7 @@ import { APIError } from "../api.js";
 import guardianURL from "../assets/otter-guardian.webp";
 import { OtterMark } from "../components/shell.js";
 import { Busy, CardFace, errorMessage, Field, Icon } from "../components/ui.js";
-import { sampleItems, seedSamples, welcomeItem } from "../demo.js";
+import { previewItems, seedSamples, welcomeItem } from "../demo.js";
 import { locale, setLocale, t } from "../i18n.js";
 import { account, createVault, register, revision, signIn, signOut, unlock, vault } from "../session.js";
 
@@ -29,11 +29,10 @@ function LanguageSwitch() {
   );
 }
 
-/** Three original faces fanned out: the welcome card and two issuer palettes. No user data. */
+/** Three original faces fanned out, as in the iOS onboarding: no issuer names, no user data. */
 function HeroCards() {
   const faces = useMemo(() => {
-    const items = sampleItems(locale.value);
-    return [items[5], items[1], items[0]].filter((item): item is NonNullable<typeof item> => !!item);
+    return previewItems(locale.value);
   }, [locale.value]);
   return (
     <div class="hero-cards" aria-hidden="true">
