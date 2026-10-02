@@ -131,6 +131,9 @@ describe("accounts", () => {
     expect(again).toContain("setupClosed");
     const status = await client.request({ method: "GET", url: "/api/v1/status" });
     expect(status.json().setupRequired).toBe(false);
+    // Capability discovery for non-web clients; no secrets, no account data.
+    expect(status.json().capabilities).toMatchObject({ payloadSchemas: [1, 2], pairing: 1, passkeys: false, invites: true });
+    expect(status.json().limits.revisionsPerVault).toBeGreaterThan(0);
   });
 
   it("sets a host-only, HttpOnly, Secure, SameSite=Strict session cookie", async () => {

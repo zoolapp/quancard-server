@@ -6,7 +6,7 @@ import { APIError } from "../api.js";
 import otterURL from "../assets/otter-mark.webp";
 import { type MessageKey, t, tEnum } from "../i18n.js";
 import { confirmPassword, SupersededError } from "../session.js";
-import { BUILTIN_TEMPLATES, templateFor, templateIDFor, WELCOME_TEMPLATE_ID } from "../templates.js";
+import { BUILTIN_TEMPLATES, ISSUERS, templateFor, templateIDFor, WELCOME_TEMPLATE_ID } from "../templates.js";
 import { VaultClosedError } from "../vault.js";
 
 /* Icons: thin stroked line icons, drawn inline (no icon font, no external requests). */
@@ -25,6 +25,18 @@ const paths: Record<string, string> = {
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z",
   refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7",
+  card: "M3.5 6.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM3.5 9.5h17M7 15.5h3",
+  bank: "M3 9.5 12 4l9 5.5M5 10v7.5M9.5 10v7.5M14.5 10v7.5M19 10v7.5M3.5 20h17",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 12h17M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z",
+  sparkle:
+    "M12 3.5c.6 4.3 2.2 5.9 6.5 6.5-4.3.6-5.9 2.2-6.5 6.5-.6-4.3-2.2-5.9-6.5-6.5 4.3-.6 5.9-2.2 6.5-6.5ZM18.5 15.5c.3 1.8 1 2.5 2.8 2.8-1.8.3-2.5 1-2.8 2.8-.3-1.8-1-2.5-2.8-2.8 1.8-.3 2.5-1 2.8-2.8Z",
+  phone: "M7.5 3.5a1.5 1.5 0 0 1 1.5-1.5h6a1.5 1.5 0 0 1 1.5 1.5v17a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5zM11 18.5h2",
+  chevron: "m9.5 6 6 6-6 6",
+  shield: "M12 3 5 5.8v5.7c0 4.4 3 7.9 7 9.5 4-1.6 7-5.1 7-9.5V5.8z M9 12l2.2 2.2L15.5 10",
+  signOut: "M14 4.5h4.5v15H14M10 8l-4 4 4 4M6.5 12H16",
+  trash: "M4.5 7h15M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4.5h6V7",
+  command:
+    "M9 9V6.5A2.5 2.5 0 1 0 6.5 9H9Zm0 0h6m-6 0v6m6-6V6.5A2.5 2.5 0 1 1 17.5 9H15Zm0 0v6m0 0h-6m6 0v2.5a2.5 2.5 0 1 0 2.5-2.5H15Zm-6 0v2.5A2.5 2.5 0 1 1 6.5 15H9Z",
 };
 
 export function Icon({ name, label }: { name: keyof typeof paths; label?: string }) {
@@ -244,7 +256,10 @@ export function CardFace({ item, artwork, showSuffix = true }: { item: VaultItem
   const welcome = item.artworkTemplateID === WELCOME_TEMPLATE_ID;
   const template = templateFor(welcome ? "graphite" : item.artworkTemplateID);
   const card = item.paymentCard;
-  const suffix = last4(card?.pan);
+  // Placeholder numbers on the welcome card are not shown; the otter takes that space.
+  const suffix = welcome ? null : last4(card?.pan);
+  // A matched issuer palette carries a short display name ("ICBC"), like the iOS issuer mark.
+  const issuerName = ISSUERS.find((issuer) => issuer.id === item.artworkTemplateID)?.name;
   const style = { "--fill": template.fill, "--accent": template.accent } as Record<string, string>;
   return (
     <div class={`card-face${url ? " has-photo" : ""}`} style={style} aria-hidden="true">
@@ -261,7 +276,7 @@ export function CardFace({ item, artwork, showSuffix = true }: { item: VaultItem
       )}
       {!url && welcome && <img class="face-decor-welcome" src={otterURL} alt="" draggable={false} />}
       <div class="face-top">
-        <span class="face-issuer">{welcome ? "QuanCard" : (item.institutionName ?? item.displayName)}</span>
+        <span class="face-issuer">{welcome ? "QuanCard" : (issuerName ?? item.institutionName ?? item.displayName)}</span>
       </div>
       <div class="face-bottom">
         <span class="face-number">{showSuffix && suffix ? `•••• ${suffix}` : ""}</span>

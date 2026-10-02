@@ -1,5 +1,6 @@
 import type { VaultItem } from "@quancard/protocol";
 import { useEffect, useState } from "preact/hooks";
+import { markStyle, monogram } from "../collection.js";
 import { CardFace, Dialog, errorMessage, Icon, PasswordDialog } from "../components/ui.js";
 import { formatTime, regionName, t, tEnum } from "../i18n.js";
 import { goBack, navigate } from "../router.js";
@@ -198,14 +199,14 @@ export function ItemView({ itemID }: { itemID: string }) {
 
   if (!entry) {
     return (
-      <main class="page">
+      <div class="pane">
         <header class="topbar">
           <button type="button" class="icon-btn" aria-label={t("back")} onClick={goBack}>
             <Icon name="back" />
           </button>
         </header>
         <div class="empty">{t("noResults")}</div>
-      </main>
+      </div>
     );
   }
   const { item } = entry;
@@ -234,7 +235,7 @@ export function ItemView({ itemID }: { itemID: string }) {
   };
 
   return (
-    <main class="page">
+    <div class="pane">
       <header class="topbar">
         <button type="button" class="icon-btn" aria-label={t("back")} onClick={goBack}>
           <Icon name="back" />
@@ -255,8 +256,8 @@ export function ItemView({ itemID }: { itemID: string }) {
             {item.paymentCard ? (
               <CardFace item={item} artwork={entry.artwork} />
             ) : (
-              <div class="account-mark" style={{ width: "72px", height: "72px", fontSize: "28px" }} aria-hidden="true">
-                {(item.institutionName ?? item.displayName).slice(0, 1).toUpperCase()}
+              <div class="account-mark large" style={markStyle(entry)} aria-hidden="true">
+                {monogram(entry)}
               </div>
             )}
             {hasSecrets && (
@@ -304,6 +305,6 @@ export function ItemView({ itemID }: { itemID: string }) {
           </button>
         </div>
       </Dialog>
-    </main>
+    </div>
   );
 }

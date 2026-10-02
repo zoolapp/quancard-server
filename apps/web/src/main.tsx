@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { locale, setLocale } from "./i18n.js";
+import { AppShell, Sheet } from "./components/shell.js";
+import { locale, setLocale, t } from "./i18n.js";
 import { resetRoute, route } from "./router.js";
 import { boot, installLifecycleGuards, phase, setupEnabled, vault } from "./session.js";
 import { NoVaultView, RegisterView, SignInView, UnlockView } from "./views/auth.js";
@@ -28,7 +29,7 @@ function App() {
     if (phase.value !== "ready") resetRoute();
   }, [phase.value]);
 
-  if (phase.value === "loading") return <main class="narrow" aria-busy="true" />;
+  if (phase.value === "loading") return <main class="boot" aria-busy="true" />;
   if (invite && phase.value === "signIn") return <RegisterView kind="invite" inviteCode={invite} />;
   if (phase.value === "setup") return setupEnabled.value ? <RegisterView kind="setup" /> : <SignInView />;
   if (phase.value === "signIn") return <SignInView />;
@@ -36,16 +37,25 @@ function App() {
   if (!vault.value) return <NoVaultView />;
 
   const current = route.value;
-  switch (current.name) {
-    case "item":
-      return <ItemView itemID={current.itemID} />;
-    case "edit":
-      return <EditorView itemID={current.itemID} kind={current.kind} />;
-    case "settings":
-      return <SettingsView version={__APP_VERSION__} />;
-    default:
-      return <HomeView />;
-  }
+  // Detail and editor open as a sheet over the collection; Settings replaces it.
+  return (
+    <AppShell>
+      {current.name === "settings" ? <SettingsView version={__APP_VERSION__} /> : <HomeView />}
+      {current.name === "item" && (
+        <Sheet label={t("details")} key={current.itemID}>
+          <ItemView itemID={current.itemID} />
+        </Sheet>
+      )}
+      {current.name === "edit" && (
+        <Sheet
+          label={current.itemID ? t("edit") : current.kind === "paymentCard" ? t("addCard") : t("addAccount")}
+          key={`edit-${current.itemID ?? current.kind}`}
+        >
+          <EditorView itemID={current.itemID} kind={current.kind} />
+        </Sheet>
+      )}
+    </AppShell>
+  );
 }
 
 render(<App />, document.getElementById("app") as HTMLElement);

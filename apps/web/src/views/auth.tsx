@@ -1,20 +1,21 @@
 import { parseRecoveryCode, passwordMeetsPolicy } from "@quancard/protocol";
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { APIError } from "../api.js";
-import { Busy, errorMessage, Field } from "../components/ui.js";
+import guardianURL from "../assets/otter-guardian.webp";
+import { OtterMark } from "../components/shell.js";
+import { Busy, CardFace, errorMessage, Field, Icon } from "../components/ui.js";
+import { sampleItems, seedSamples, welcomeItem } from "../demo.js";
 import { locale, setLocale, t } from "../i18n.js";
-import { account, createVault, register, signIn, signOut, unlock } from "../session.js";
+import { account, createVault, register, revision, signIn, signOut, unlock, vault } from "../session.js";
 
-function Brand() {
+function Lockup() {
   return (
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true">
-        Q
-      </div>
+    <div class="lockup">
+      <OtterMark size={52} />
       <div>
-        <div class="brand-name">{t("appName")}</div>
-        <div class="brand-sub">{t("tagline")}</div>
+        <div class="wordmark">QuanCard</div>
+        <div class="lockup-sub">{t("brandTagline")}</div>
       </div>
     </div>
   );
@@ -22,22 +23,72 @@ function Brand() {
 
 function LanguageSwitch() {
   return (
-    <div class="row-actions">
-      <button type="button" class="link-btn" onClick={() => setLocale(locale.value === "zh" ? "en" : "zh")}>
-        {locale.value === "zh" ? "English" : "简体中文"}
-      </button>
+    <button type="button" class="link-btn quiet" onClick={() => setLocale(locale.value === "zh" ? "en" : "zh")}>
+      <Icon name="globe" /> {locale.value === "zh" ? "English" : "简体中文"}
+    </button>
+  );
+}
+
+/** Three original faces fanned out: the welcome card and two issuer palettes. No user data. */
+function HeroCards() {
+  const faces = useMemo(() => {
+    const items = sampleItems(locale.value);
+    return [items[5], items[1], items[0]].filter((item): item is NonNullable<typeof item> => !!item);
+  }, [locale.value]);
+  return (
+    <div class="hero-cards" aria-hidden="true">
+      {faces.map((item, index) => (
+        <div key={item.id} class={`hero-card hero-card-${index}`}>
+          <CardFace item={item} artwork={null} showSuffix={false} />
+        </div>
+      ))}
     </div>
   );
 }
 
-function Shell({ children }: { children: ComponentChildren }) {
+function Shell({ children, art = "cards" }: { children: ComponentChildren; art?: "cards" | "guardian" }) {
   return (
-    <main class="narrow">
-      <Brand />
-      {children}
-      <LanguageSwitch />
-      <p class="footer">{t("disclaimer")}</p>
-    </main>
+    <div class="auth">
+      <aside class="auth-hero">
+        <div class="auth-hero-inner">
+          <Lockup />
+          {art === "guardian" ? <img class="hero-guardian" src={guardianURL} alt="" width={420} height={420} /> : <HeroCards />}
+          <h2 class="hero-title">{t("heroTitle")}</h2>
+          <p class="hero-lead">{t("heroLead")}</p>
+          <ul class="features">
+            {(
+              [
+                ["shield", "feature1", "feature1Lead"],
+                ["phone", "feature2", "feature2Lead"],
+                ["globe", "feature3", "feature3Lead"],
+              ] as const
+            ).map(([icon, title, lead]) => (
+              <li key={title}>
+                <span class="feature-icon">
+                  <Icon name={icon} />
+                </span>
+                <span>
+                  <strong>{t(title)}</strong>
+                  <span>{t(lead)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+      <main class="auth-main">
+        <div class="auth-panel">
+          <div class="auth-mobile-brand">
+            <Lockup />
+          </div>
+          {children}
+        </div>
+        <footer class="auth-foot">
+          <LanguageSwitch />
+          <span>{t("disclaimer")}</span>
+        </footer>
+      </main>
+    </div>
   );
 }
 
@@ -207,18 +258,38 @@ export function UnlockView() {
       setBusy(false);
     }
   };
+  const name = account.value?.username ?? "";
   return (
-    <Shell>
-      <h1 class="page-title">{t("unlockTitle")}</h1>
+    <Shell art="guardian">
+      <div class="unlock-head">
+        <span class="avatar large" aria-hidden="true">
+          {Array.from(name || "?")[0]?.toUpperCase()}
+        </span>
+        <div>
+          <h1 class="page-title">{t("welcomeBack")}</h1>
+          <p class="lead tight">{t("signedInAs", { name })}</p>
+        </div>
+      </div>
       <p class="lead">{t("unlockLead")}</p>
       <form onSubmit={submit}>
-        <input type="text" class="visually-hidden" autocomplete="username" value={account.value?.username ?? ""} readOnly tabIndex={-1} aria-hidden="true" />
-        <Field label={`${t("password")} · ${account.value?.username ?? ""}`}>
-          <input class="input" type="password" autocomplete="current-password" value={password} onInput={(e) => setPassword(e.currentTarget.value)} required />
+        <input type="text" class="visually-hidden" autocomplete="username" value={name} readOnly tabIndex={-1} aria-hidden="true" />
+        <Field label={t("password")}>
+          <input
+            class="input"
+            type="password"
+            autocomplete="current-password"
+            value={password}
+            onInput={(e) => setPassword(e.currentTarget.value)}
+            required
+            // biome-ignore lint/a11y/noAutofocus: the lock screen has exactly one thing to do
+            autoFocus
+          />
         </Field>
         <ErrorLine error={error} />
         <button type="submit" class="btn primary block" disabled={busy || !password}>
-          <Busy busy={busy}>{t("unlock")}</Busy>
+          <Busy busy={busy}>
+            <Icon name="lock" /> {t("unlock")}
+          </Busy>
         </button>
       </form>
       <button type="button" class="link-btn" onClick={() => void signOut()}>
@@ -255,17 +326,41 @@ export function NoVaultView() {
     setCode("");
     void run(() => createVault(material));
   };
+  const createNew = () =>
+    run(async () => {
+      await createVault();
+      // A new vault starts with the welcome card, like a fresh iPhone install. Imports start as they are.
+      const store = vault.value;
+      if (store) {
+        await seedSamples(store, [welcomeItem(locale.value)]);
+        revision.value++;
+      }
+    });
   return (
     <Shell>
       <h1 class="page-title">{t("noVaultTitle")}</h1>
       <p class="lead">{t("noVaultLead")}</p>
       {mode === "choose" ? (
-        <div class="row-actions">
-          <button type="button" class="btn primary" disabled={busy} onClick={() => run(() => createVault())}>
-            {t("createVault")}
+        <div class="choices">
+          <button type="button" class="choice" disabled={busy} onClick={() => void createNew()}>
+            <span class="choice-icon" aria-hidden="true">
+              {busy ? <span class="spinner" /> : <Icon name="sparkle" />}
+            </span>
+            <span class="choice-text">
+              <strong>{t("createVault")}</strong>
+              <span>{t("createVaultLead")}</span>
+            </span>
+            <Icon name="chevron" />
           </button>
-          <button type="button" class="btn" onClick={() => setMode("import")}>
-            {t("importVault")}
+          <button type="button" class="choice" disabled={busy} onClick={() => setMode("import")}>
+            <span class="choice-icon" aria-hidden="true">
+              <Icon name="refresh" />
+            </span>
+            <span class="choice-text">
+              <strong>{t("importVault")}</strong>
+              <span>{t("importVaultLead")}</span>
+            </span>
+            <Icon name="chevron" />
           </button>
         </div>
       ) : (

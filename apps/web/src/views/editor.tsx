@@ -180,7 +180,7 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
     updateAccount({ routingIdentifiers: (account?.routingIdentifiers ?? []).map((r, i) => (i === index ? { ...r, ...patch } : r)) });
 
   return (
-    <main class="page">
+    <div class="pane">
       <header class="topbar">
         <button type="button" class="icon-btn" aria-label={t("cancel")} onClick={goBack}>
           <Icon name="close" />
@@ -424,6 +424,6 @@ export function EditorView({ itemID, kind }: { itemID: string | null; kind: Kind
           {busy && <p class="lead">{t("saving")}</p>}
         </div>
       </form>
-    </main>
+    </div>
   );
 }

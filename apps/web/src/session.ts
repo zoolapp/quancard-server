@@ -204,6 +204,28 @@ export async function signOut(): Promise<void> {
   }
 }
 
+/**
+ * Pulls new revisions from other devices (an iPhone edit shows up without a
+ * manual refresh). Only ciphertext moves; nothing here counts as user activity,
+ * so it never postpones the idle lock.
+ */
+const SYNC_MS = 60 * 1000;
+let syncing = false;
+
+export async function syncNow(): Promise<void> {
+  const store = vault.value;
+  if (!store || phase.value !== "ready" || syncing) return;
+  syncing = true;
+  try {
+    await store.refresh();
+    revision.value++;
+  } catch {
+    // Offline or locked meanwhile: the next tick retries.
+  } finally {
+    syncing = false;
+  }
+}
+
 function armIdleTimer(): void {
   clearTimeout(idleTimer);
   if (phase.value === "ready") idleTimer = setTimeout(lock, IDLE_MS);
@@ -224,7 +246,11 @@ export function installLifecycleGuards(): void {
       if (hiddenAt !== null && Date.now() - hiddenAt > BACKGROUND_MS) lock();
       hiddenAt = null;
       delete document.documentElement.dataset.privacy;
+      void syncNow();
     }
   });
   window.addEventListener("pagehide", lock);
+  setInterval(() => {
+    if (document.visibilityState === "visible") void syncNow();
+  }, SYNC_MS);
 }

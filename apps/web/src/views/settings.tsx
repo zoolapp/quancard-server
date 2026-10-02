@@ -1,12 +1,15 @@
 import { base64, deriveAccountSecrets, passwordMeetsPolicy, randomBytes, recoveryCode, unwrapAccountKey, wrapAccountKey } from "@quancard/protocol";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { loadSampleData, removeSampleData } from "../actions.js";
 import { api } from "../api.js";
 import { Dialog, errorMessage, Field, Icon, PasswordDialog, QRCanvas } from "../components/ui.js";
+import { isSample } from "../demo.js";
 import { formatBytes, formatTime, locale, type MessageKey, setLocale, t } from "../i18n.js";
 import { argon2id } from "../kdf.js";
 import { goBack } from "../router.js";
-import { account, confirmPassword, signOut, unlock, vault } from "../session.js";
+import { account, confirmPassword, revision, signOut, unlock, vault } from "../session.js";
+import { showToast } from "../state.js";
 
 type Secrets = Awaited<ReturnType<typeof confirmPassword>>;
 
@@ -450,12 +453,58 @@ function DeleteAccount() {
   );
 }
 
+function SampleData() {
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  void revision.value;
+  const count = vault.value?.items().filter((e) => isSample(e.item)).length ?? 0;
+  const run = async (work: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await work();
+    } catch (e) {
+      showToast(errorMessage(e) || t("errGeneric"));
+    } finally {
+      setBusy(false);
+      setConfirm(false);
+    }
+  };
+  return (
+    <>
+      <div class="setting-block">
+        <p class="muted">{t("samplesLead")}</p>
+        <div class="row-actions">
+          <button type="button" class="btn small" disabled={busy} onClick={() => void run(loadSampleData)}>
+            <Icon name="sparkle" /> {t("loadSamples")}
+          </button>
+          {count > 0 && (
+            <button type="button" class="btn small danger" disabled={busy} onClick={() => setConfirm(true)}>
+              <Icon name="trash" /> {t("removeSamples")}
+            </button>
+          )}
+        </div>
+      </div>
+      <Dialog open={confirm} onClose={() => setConfirm(false)} title={t("removeSamplesTitle")}>
+        <p class="lead">{t("removeSamplesLead")}</p>
+        <div class="row-actions">
+          <button type="button" class="btn danger solid" disabled={busy} onClick={() => void run(removeSampleData)}>
+            {t("removeSamples")} ({count})
+          </button>
+          <button type="button" class="btn" onClick={() => setConfirm(false)}>
+            {t("cancel")}
+          </button>
+        </div>
+      </Dialog>
+    </>
+  );
+}
+
 export function SettingsView({ version }: { version: string }) {
   const store = vault.value;
   const view = store?.view;
   const [message, setMessage] = useState("");
   return (
-    <main class="page">
+    <main class="page settings-page">
       <header class="topbar">
         <button type="button" class="icon-btn" aria-label={t("back")} onClick={goBack}>
           <Icon name="back" />
@@ -504,6 +553,10 @@ export function SettingsView({ version }: { version: string }) {
 
       <Section title={t("devices")}>
         <Devices />
+      </Section>
+
+      <Section title={t("samplesSection")}>
+        <SampleData />
       </Section>
 
       {view && (

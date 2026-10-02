@@ -1,63 +1,149 @@
 import { useMemo, useState } from "preact/hooks";
-import { CardFace, Icon, itemSummary, last4 } from "../components/ui.js";
-import { regionName, t, tEnum } from "../i18n.js";
+import { loadSampleData } from "../actions.js";
+import firstCardURL from "../assets/otter-first-card.webp";
+import { compare, markStyle, monogram, regionsOf } from "../collection.js";
+import { AddMenu, MobileHeader } from "../components/shell.js";
+import { CardFace, errorMessage, Icon, itemSummary, last4 } from "../components/ui.js";
+import { WELCOME_ID } from "../demo.js";
+import { formatTime, regionName, t, tEnum } from "../i18n.js";
 import { navigate } from "../router.js";
-import { lock, revision, vault } from "../session.js";
+import { revision, vault } from "../session.js";
+import { region, type Section, section, selectSection, showToast } from "../state.js";
 import type { ProjectedItem } from "../vault.js";
 
-type Tab = "paymentCard" | "bankAccount";
-
-let rememberedTab: Tab = "paymentCard";
-
-function matches(entry: ProjectedItem, query: string): boolean {
-  if (!query) return true;
-  const item = entry.item;
-  const haystack = [item.displayName, item.institutionName, item.country, regionName(item.country), item.notes, ...item.tags]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .every((part) => haystack.includes(part));
+function SampleButton({ primary }: { primary?: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      await loadSampleData();
+    } catch (e) {
+      showToast(errorMessage(e) || t("errGeneric"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button type="button" class={`btn${primary ? " primary" : ""}`} disabled={busy} onClick={() => void run()}>
+      {busy ? <span class="spinner" aria-hidden="true" /> : <Icon name="sparkle" />} {t("loadSamples")}
+    </button>
+  );
 }
 
-/** Manual order first (shared with iOS), then name. Time never reorders silently. */
-function compare(a: ProjectedItem, b: ProjectedItem): number {
-  const pa = a.item.manualSortPosition;
-  const pb = b.item.manualSortPosition;
-  if (pa !== null && pb !== null && pa !== pb) return pa - pb;
-  if (pa !== null && pb === null) return -1;
-  if (pa === null && pb !== null) return 1;
-  return a.item.displayName.localeCompare(b.item.displayName);
+function EmptyState({ kind }: { kind: Section }) {
+  if (kind === "favorites") {
+    return (
+      <div class="empty">
+        <div class="empty-icon" aria-hidden="true">
+          <Icon name="star" />
+        </div>
+        <h2 class="empty-title">{t("emptyFavorites")}</h2>
+        <p>{t("emptyFavoritesLead")}</p>
+      </div>
+    );
+  }
+  return (
+    <div class="empty hero-empty">
+      <img class="empty-art" src={firstCardURL} alt="" width={384} height={256} />
+      <h2 class="empty-title">{kind === "paymentCard" ? t("emptyCards") : t("emptyAccounts")}</h2>
+      <p>{t("emptyLead")}</p>
+      <div class="row-actions center">
+        <button type="button" class="btn primary" onClick={() => navigate({ name: "edit", itemID: null, kind })}>
+          <Icon name="plus" /> {kind === "paymentCard" ? t("addCard") : t("addAccount")}
+        </button>
+        <SampleButton />
+        <button type="button" class="btn ghost" onClick={() => navigate({ name: "settings" })}>
+          <Icon name="phone" /> {t("pairIphone")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CardGrid({ entries }: { entries: ProjectedItem[] }) {
+  return (
+    <div class="grid">
+      {entries.map((entry) => (
+        <button
+          key={entry.itemID}
+          type="button"
+          class="card-tile"
+          aria-label={itemSummary(entry.item)}
+          onClick={() => navigate({ name: "item", itemID: entry.itemID })}
+        >
+          <CardFace item={entry.item} artwork={entry.artwork} />
+          <div class="card-caption" aria-hidden="true">
+            <span class="cap-title">
+              {entry.item.isFavorite && <span class="fav">★</span>}
+              {entry.item.displayName}
+              {entry.conflict && <span class="badge conflict">!</span>}
+            </span>
+            <span class="cap-sub">{entry.item.paymentCard ? tEnum("fundingType", entry.item.paymentCard.fundingType) : ""}</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AccountList({ entries }: { entries: ProjectedItem[] }) {
+  return (
+    <div class="list">
+      {entries.map((entry) => {
+        const account = entry.item.bankAccount;
+        const suffix = last4(account?.accountNumber);
+        return (
+          <button key={entry.itemID} type="button" class="list-row" onClick={() => navigate({ name: "item", itemID: entry.itemID })}>
+            <span class="account-mark" style={markStyle(entry)} aria-hidden="true">
+              {monogram(entry)}
+            </span>
+            <span class="row-main">
+              <span class="row-title">
+                {entry.item.isFavorite && <span class="fav">★</span>}
+                {entry.item.displayName}
+                {entry.conflict && <span class="badge conflict">!</span>}
+              </span>
+              <span class="row-sub">
+                {[entry.item.institutionName, account ? tEnum("accountKind", account.accountKind) : null].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+            {account && account.currencies.length > 0 && (
+              <span class="currencies" aria-hidden="true">
+                {account.currencies.slice(0, 3).map((c) => (
+                  <span key={c} class="currency">
+                    {c}
+                  </span>
+                ))}
+              </span>
+            )}
+            <span class="row-trail">{suffix ? `•••• ${suffix}` : ""}</span>
+            <Icon name="chevron" />
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function HomeView() {
   void revision.value;
   const store = vault.value;
-  const [tab, setTab] = useState<Tab>(rememberedTab);
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [region, setRegion] = useState<string | null>(null);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
+  const current = section.value;
+  const selectedRegion = region.value;
   const all = useMemo(() => store?.items() ?? [], [store, revision.value]);
+
   const counts = {
     paymentCard: all.filter((e) => e.item.kind === "paymentCard").length,
     bankAccount: all.filter((e) => e.item.kind === "bankAccount").length,
+    favorites: all.filter((e) => e.item.isFavorite).length,
   };
-  const inTab = all.filter((e) => e.item.kind === tab);
-  const regions = [...new Set(inTab.map((e) => e.item.country?.toUpperCase()).filter((c): c is string => !!c))].sort();
-  const visible = inTab
-    .filter((e) => !region || e.item.country?.toUpperCase() === region)
-    .filter((e) => !favoritesOnly || e.item.isFavorite)
-    .filter((e) => matches(e, query))
-    .sort(compare);
+  const scope = current === "favorites" ? all.filter((e) => e.item.isFavorite) : all.filter((e) => e.item.kind === current);
+  const regions = regionsOf(scope);
+  const visible = scope.filter((e) => !selectedRegion || e.item.country?.toUpperCase() === selectedRegion).sort(compare);
   const conflicts = all.filter((e) => e.conflict).length;
   const view = store?.view;
   const usage = view ? Math.max(view.revisionCount / view.quota.revisionCount, view.totalBytes / view.quota.totalBytes) : 0;
+  const onlyWelcome = all.length === 1 && all[0]?.itemID.toUpperCase() === WELCOME_ID.toUpperCase();
 
   // Region groups in a stable, localized alphabetical order; items without a region last.
   const groups = new Map<string, ProjectedItem[]>();
@@ -70,94 +156,69 @@ export function HomeView() {
       visible.filter((e) => (e.item.country?.toUpperCase() ?? "") === key),
     );
 
-  const selectTab = (next: Tab) => {
-    rememberedTab = next;
-    setTab(next);
-    setRegion(null);
-  };
-
-  const refresh = async () => {
-    if (!store) return;
-    setRefreshing(true);
-    try {
-      await store.refresh();
-      revision.value++;
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  const title = current === "paymentCard" ? t("cards") : current === "bankAccount" ? t("accounts") : t("favorites");
+  const n = visible.length;
+  const countLabel =
+    current === "paymentCard"
+      ? n === 1
+        ? t("countCard")
+        : t("countCards", { n })
+      : current === "bankAccount"
+        ? n === 1
+          ? t("countAccount")
+          : t("countAccounts", { n })
+        : n === 1
+          ? t("countItem")
+          : t("countItems", { n });
 
   return (
-    <main class="page">
-      <header class="topbar">
-        {searching ? (
-          <>
-            <div class="search">
-              <Icon name="search" />
-              <input
-                type="search"
-                aria-label={t("search")}
-                placeholder={t("searchPlaceholder")}
-                value={query}
-                onInput={(e) => setQuery(e.currentTarget.value)}
-                // biome-ignore lint/a11y/noAutofocus: opened explicitly by the search button
-                autoFocus
-              />
-              {query && (
-                <button type="button" class="icon-btn" aria-label={t("clear")} onClick={() => setQuery("")}>
-                  <Icon name="close" />
-                </button>
-              )}
-            </div>
-            <button type="button" class="btn small" onClick={() => (setSearching(false), setQuery(""))}>
-              {t("closeSearch")}
-            </button>
-          </>
-        ) : (
-          <>
-            <h1 class="title">{t("appName")}</h1>
-            <button type="button" class="icon-btn" aria-label={t("search")} onClick={() => setSearching(true)}>
-              <Icon name="search" />
-            </button>
-            <button type="button" class="icon-btn" aria-label={t("refresh")} onClick={() => void refresh()} disabled={refreshing}>
-              {refreshing ? <span class="spinner" aria-hidden="true" /> : <Icon name="refresh" />}
-            </button>
-            <button type="button" class="icon-btn" aria-label={t("settings")} onClick={() => navigate({ name: "settings" })}>
-              <Icon name="settings" />
-            </button>
-            <button type="button" class="icon-btn" aria-label={t("lock")} onClick={lock}>
-              <Icon name="lock" />
-            </button>
-          </>
-        )}
+    <main class="home">
+      <MobileHeader />
+
+      <header class="page-head">
+        <div class="page-head-text">
+          <h1 class="page-heading">{selectedRegion ? regionName(selectedRegion) : title}</h1>
+          <p class="page-sub">
+            {selectedRegion ? `${title} · ${countLabel}` : countLabel}
+            <span class="dot" aria-hidden="true" />
+            <span class="enc">
+              <Icon name="shield" /> {t("encrypted")}
+            </span>
+          </p>
+        </div>
+        <div class="head-actions desktop-only">
+          <AddMenu placement="header" />
+        </div>
       </header>
 
-      <div class="tabs" role="tablist">
-        {(["paymentCard", "bankAccount"] as const).map((key) => (
-          <button key={key} type="button" role="tab" class="tab" aria-selected={tab === key} onClick={() => selectTab(key)}>
-            {key === "paymentCard" ? t("cards") : t("accounts")}
-            <span class="count">{counts[key]}</span>
-          </button>
-        ))}
-      </div>
-
-      {(regions.length > 0 || inTab.some((e) => e.item.isFavorite)) && (
-        <div class="chips" role="toolbar" aria-label={t("region")}>
-          <button type="button" class="chip" aria-pressed={!region && !favoritesOnly} onClick={() => (setRegion(null), setFavoritesOnly(false))}>
-            {t("allRegions")}
-          </button>
-          {inTab.some((e) => e.item.isFavorite) && (
-            <button type="button" class="chip" aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(!favoritesOnly)}>
-              ★ {t("favorites")}
-            </button>
-          )}
-          {regions.map((code) => (
-            <button key={code} type="button" class="chip" aria-pressed={region === code} onClick={() => setRegion(region === code ? null : code)}>
-              {regionName(code)}
+      <div class="mobile-only">
+        <div class="tabs" role="tablist">
+          {(["paymentCard", "bankAccount", "favorites"] as const).map((key) => (
+            <button key={key} type="button" role="tab" class="tab" aria-selected={current === key} onClick={() => selectSection(key)}>
+              {key === "paymentCard" ? t("cards") : key === "bankAccount" ? t("accounts") : t("favorites")}
+              <span class="count">{counts[key]}</span>
             </button>
           ))}
         </div>
-      )}
+        {regions.length > 1 && (
+          <div class="chips" role="toolbar" aria-label={t("region")}>
+            <button type="button" class="chip" aria-pressed={!selectedRegion} onClick={() => (region.value = null)}>
+              {t("allRegions")}
+            </button>
+            {regions.map(({ code, count }) => (
+              <button
+                key={code}
+                type="button"
+                class="chip"
+                aria-pressed={selectedRegion === code}
+                onClick={() => (region.value = selectedRegion === code ? null : code)}
+              >
+                {regionName(code)} <span class="count">{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {conflicts > 0 && (
         <div class="notice warn" role="status">
@@ -178,89 +239,50 @@ export function HomeView() {
       {(store?.unreadable ?? 0) > 0 && <div class="notice warn">{t("unreadable", { n: store?.unreadable ?? 0 })}</div>}
       {usage >= 0.8 && <div class="notice warn">{t("capacityWarning", { pct: Math.round(usage * 100) })}</div>}
 
-      {visible.length === 0 ? (
-        <div class="empty">
-          <div class="empty-title">{query || region || favoritesOnly ? t("noResults") : tab === "paymentCard" ? t("emptyCards") : t("emptyAccounts")}</div>
-          {!query && !region && <p>{t("emptyLead")}</p>}
+      {onlyWelcome && current !== "favorites" && (
+        <div class="banner">
+          <span class="banner-icon" aria-hidden="true">
+            <Icon name="sparkle" />
+          </span>
+          <span class="banner-text">{t("samplesHint")}</span>
+          <SampleButton primary />
         </div>
+      )}
+
+      {visible.length === 0 ? (
+        <EmptyState kind={current} />
       ) : (
         [...groups.entries()].map(([code, entries]) => (
-          <section key={code || "none"} aria-label={code ? regionName(code) : t("allRegions")}>
+          <section key={code || "none"} class="group" aria-label={code ? regionName(code) : t("noRegion")}>
             {groups.size > 1 && (
               <h2 class="section-label">
-                {code ? regionName(code) : "—"} <span class="count">{entries.length}</span>
+                {code && (
+                  <span class="region-code" aria-hidden="true">
+                    {code}
+                  </span>
+                )}
+                {code ? regionName(code) : t("noRegion")} <span class="count">{entries.length}</span>
               </h2>
             )}
-            {tab === "paymentCard" ? (
-              <div class="grid" style={groups.size > 1 ? undefined : { marginTop: "12px" }}>
-                {entries.map((entry) => (
-                  <button
-                    key={entry.itemID}
-                    type="button"
-                    class="card-tile"
-                    aria-label={itemSummary(entry.item)}
-                    onClick={() => navigate({ name: "item", itemID: entry.itemID })}
-                  >
-                    <CardFace item={entry.item} artwork={entry.artwork} />
-                    <div class="card-caption" aria-hidden="true">
-                      <span class="cap-title">
-                        {entry.item.isFavorite ? "★ " : ""}
-                        {entry.item.displayName}
-                        {entry.conflict && <span class="badge conflict">!</span>}
-                      </span>
-                      <span class="cap-sub">{entry.item.paymentCard ? tEnum("fundingType", entry.item.paymentCard.fundingType) : ""}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {current === "bankAccount" || (current === "favorites" && entries.every((e) => e.item.kind === "bankAccount")) ? (
+              <AccountList entries={entries} />
+            ) : current === "favorites" ? (
+              <>
+                {entries.some((e) => e.item.kind === "paymentCard") && <CardGrid entries={entries.filter((e) => e.item.kind === "paymentCard")} />}
+                {entries.some((e) => e.item.kind === "bankAccount") && <AccountList entries={entries.filter((e) => e.item.kind === "bankAccount")} />}
+              </>
             ) : (
-              <div class="list">
-                {entries.map((entry) => {
-                  const account = entry.item.bankAccount;
-                  const suffix = last4(account?.accountNumber);
-                  return (
-                    <button key={entry.itemID} type="button" class="list-row" onClick={() => navigate({ name: "item", itemID: entry.itemID })}>
-                      <span class="account-mark" aria-hidden="true">
-                        {(entry.item.institutionName ?? entry.item.displayName).slice(0, 1).toUpperCase()}
-                      </span>
-                      <span class="row-main">
-                        <span class="row-title">
-                          {entry.item.isFavorite ? "★ " : ""}
-                          {entry.item.displayName}
-                          {entry.conflict && <span class="badge conflict">!</span>}
-                        </span>
-                        <br />
-                        <span class="row-sub">
-                          {[entry.item.institutionName, account ? tEnum("accountKind", account.accountKind) : null, account?.currencies.join(" · ")]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </span>
-                      <span class="row-trail">{suffix ? `•••• ${suffix}` : ""}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <CardGrid entries={entries} />
             )}
           </section>
         ))
       )}
 
-      {view && <p class="footer">{t("syncedAt", { time: new Date(view.modifiedAt * 1000).toLocaleString() })}</p>}
+      {view && <p class="footer">{t("syncedAt", { time: formatTime(view.modifiedAt) })}</p>}
 
-      {menu && (
-        <div class="menu">
-          <button type="button" class="btn" onClick={() => (setMenu(false), navigate({ name: "edit", itemID: null, kind: "paymentCard" }))}>
-            {t("addCard")}
-          </button>
-          <button type="button" class="btn" onClick={() => (setMenu(false), navigate({ name: "edit", itemID: null, kind: "bankAccount" }))}>
-            {t("addAccount")}
-          </button>
-        </div>
-      )}
-      <button type="button" class="fab" aria-label={t("add")} aria-expanded={menu} onClick={() => setMenu(!menu)}>
-        <Icon name={menu ? "close" : "plus"} />
-      </button>
+      <div class="mobile-only">
+        <AddMenu placement="fab" />
+      </div>
     </main>
   );
 }

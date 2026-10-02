@@ -95,6 +95,8 @@ paths:
                 - setupRequired
                 - setupEnabled
                 - protocol
+                - capabilities
+                - limits
                 properties:
                   service:
                     type: string
@@ -123,6 +125,52 @@ paths:
                       envelope:
                         type: integer
                         const: 1
+                  capabilities:
+                    type: object
+                    description: Feature discovery. Clients branch on these fields, never on `version`. New fields may be added.
+                    required:
+                    - payloadSchemas
+                    - pairing
+                    - twoFactor
+                    - passkeys
+                    - invites
+                    - multipleVaults
+                    properties:
+                      payloadSchemas:
+                        type: array
+                        items:
+                          type: integer
+                      pairing:
+                        type: integer
+                        const: 1
+                      twoFactor:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                          - totp
+                          - recoveryCode
+                      passkeys:
+                        type: boolean
+                        description: true once passkey v1 (docs/protocol/passkey-v1.md) is implemented.
+                      invites:
+                        type: boolean
+                      multipleVaults:
+                        type: boolean
+                  limits:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - revisionsPerVault
+                    - bytesPerVault
+                    - vaultsPerAccount
+                    properties:
+                      revisionsPerVault:
+                        type: integer
+                      bytesPerVault:
+                        type: integer
+                      vaultsPerAccount:
+                        type: integer
         '421':
           $ref: '#/components/responses/MisdirectedRequest'
         '426':

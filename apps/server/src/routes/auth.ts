@@ -142,6 +142,21 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
       setupRequired: users === 0,
       setupEnabled: token !== null && users === 0 && !setupTokenConsumed(ctx, token),
       protocol: { auth: 1, sync: 1, envelope: 1 },
+      // Feature discovery for clients other than the bundled web app (macOS, future apps):
+      // branch on these, never on the version string.
+      capabilities: {
+        payloadSchemas: [1, 2],
+        pairing: 1,
+        twoFactor: ["totp", "recoveryCode"],
+        passkeys: false,
+        invites: true,
+        multipleVaults: ctx.config.quota.vaultsPerAccount > 1,
+      },
+      limits: {
+        revisionsPerVault: ctx.config.quota.revisionCount,
+        bytesPerVault: ctx.config.quota.totalBytes,
+        vaultsPerAccount: ctx.config.quota.vaultsPerAccount,
+      },
     };
   });
 
