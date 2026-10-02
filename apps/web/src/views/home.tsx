@@ -223,14 +223,7 @@ export function HomeView() {
       {conflicts > 0 && (
         <div class="notice warn" role="status">
           {t("conflicts", { n: conflicts })}
-          <button
-            type="button"
-            class="link-btn notice-action"
-            onClick={() => {
-              const first = all.find((e) => e.conflict);
-              if (first) navigate({ name: "item", itemID: first.itemID });
-            }}
-          >
+          <button type="button" class="link-btn notice-action" onClick={() => navigate({ name: "conflicts" })}>
             {t("review")}
           </button>
         </div>

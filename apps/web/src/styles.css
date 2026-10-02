@@ -2273,6 +2273,119 @@ svg.linked {
   color: var(--ink-2);
 }
 
+/* ───────────── Conflict centre ───────────── */
+
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.conflict-card {
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.conflict-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.conflict-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.conflict-name .badge {
+  margin: 0;
+}
+
+.diff {
+  display: grid;
+  border-top: 1px solid var(--hairline);
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.8fr) repeat(var(--cols, 2), minmax(0, 1fr));
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+
+.diff-row:last-child {
+  border-bottom: 0;
+}
+
+.diff-k {
+  color: var(--ink-2);
+}
+
+.diff-v {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.diff-header .diff-v strong {
+  font-weight: 500;
+}
+
+.diff-actions .btn {
+  justify-self: start;
+}
+
+.bulk-preview {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 40dvh;
+  overflow-y: auto;
+  border-top: 1px solid var(--hairline);
+}
+
+.bulk-preview li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+
+.bulk-name {
+  font-weight: 500;
+}
+
+.bulk-pick {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+@media (max-width: 560px) {
+  .diff-row {
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  }
+
+  .diff-row .diff-k {
+    grid-column: 1 / -1;
+    font-size: 12.5px;
+  }
+
+  .diff-header .diff-k {
+    display: none;
+  }
+}
+
 /* ───────────── Motion ───────────── */
 
 .spinner {
@@ -2412,6 +2525,11 @@ svg.linked {
 
   .settings-page > .topbar .icon-btn {
     display: none;
+  }
+
+  /* The conflict centre is reached from a banner, so it keeps its way back. */
+  .settings-page.conflicts-page > .topbar .icon-btn {
+    display: inline-grid;
   }
 
   .settings-page > .topbar {

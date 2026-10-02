@@ -92,7 +92,7 @@ function NavItem({ icon, label, count, active, onClick }: { icon: string; label:
 export function Sidebar({ inert }: { inert?: boolean }) {
   const all = useItems();
   const store = vault.value;
-  const onHome = route.value.name !== "settings";
+  const onHome = route.value.name !== "settings" && route.value.name !== "conflicts";
   const current = section.value;
   const counts = {
     paymentCard: all.filter((e) => e.item.kind === "paymentCard").length,
@@ -244,6 +244,7 @@ export function CommandPalette() {
     { key: "add-account", icon: "bank", label: t("addAccount"), run: () => navigate({ name: "edit", itemID: null, kind: "bankAccount" }) },
     { key: "cards", icon: "card", label: t("cards"), run: () => (selectSection("paymentCard"), navigate({ name: "home" })) },
     { key: "accounts", icon: "bank", label: t("accounts"), run: () => (selectSection("bankAccount"), navigate({ name: "home" })) },
+    ...(all.some((e) => e.conflict) ? [{ key: "conflicts", icon: "refresh", label: t("conflictsTitle"), run: () => navigate({ name: "conflicts" }) }] : []),
     { key: "settings", icon: "settings", label: t("settings"), run: () => navigate({ name: "settings" }) },
     { key: "pair", icon: "phone", label: t("pairIphone"), run: () => navigate({ name: "settings" }) },
     { key: "lock", icon: "lock", label: t("lock"), run: lock },

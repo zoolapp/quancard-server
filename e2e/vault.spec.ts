@@ -78,6 +78,17 @@ async function syntheticJPEG(page: Page): Promise<Buffer> {
 
 test.describe.configure({ mode: "serial" });
 
+/** Conflict centre: click "Keep this version" in the column whose values contain `text`. */
+async function chooseVersion(page: Page, text: string) {
+  const cards = page.locator(".conflict-card", { hasText: text });
+  const cells = cards.locator(".diff-row", { hasText: text }).first().locator(".diff-v");
+  const count = await cells.count();
+  let column = -1;
+  for (let i = 0; i < count; i++) if ((await cells.nth(i).textContent())?.includes(text)) column = i;
+  if (column < 0) throw new Error(`no version column contains ${text}`);
+  await cards.locator(".diff-actions .diff-v").nth(column).getByRole("button").click();
+}
+
 test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password change", async ({ page, request }) => {
   page.on("request", record);
   await page.goto("/");
@@ -261,10 +272,10 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect(page.getByText("1 item(s) have conflicting versions")).toBeVisible();
   await page.getByRole("button", { name: "Review" }).click();
-  await expect(page.getByRole("heading", { name: "Conflicting versions" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conflicts", exact: true })).toBeVisible();
   await shoot(page, "conflict");
-  await page.locator(".panel", { hasText: "Synthetic Travel Card Edited" }).getByRole("button", { name: "Keep this version" }).click();
-  await expect(page.getByRole("heading", { name: "Conflicting versions" })).toHaveCount(0);
+  await chooseVersion(page, "Synthetic Travel Card Edited");
+  await expect(page.getByRole("heading", { name: "No conflicts" })).toBeVisible();
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByText("conflicting versions")).toHaveCount(0);
 

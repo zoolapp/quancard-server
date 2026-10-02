@@ -5,7 +5,8 @@ export type Route =
   | { name: "home" }
   | { name: "item"; itemID: string }
   | { name: "edit"; itemID: string | null; kind: "paymentCard" | "bankAccount" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "conflicts" };
 
 export const route = signal<Route>({ name: "home" });
 

@@ -134,6 +134,17 @@ async function capture(page: Page, screen: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
 }
 
+/** Conflict centre: click "Keep this version" in the column whose values contain `text`. */
+async function chooseVersion(page: Page, text: string) {
+  const cards = page.locator(".conflict-card", { hasText: text });
+  const cells = cards.locator(".diff-row", { hasText: text }).first().locator(".diff-v");
+  const count = await cells.count();
+  let column = -1;
+  for (let i = 0; i < count; i++) if ((await cells.nth(i).textContent())?.includes(text)) column = i;
+  if (column < 0) throw new Error(`no version column contains ${text}`);
+  await cards.locator(".diff-actions .diff-v").nth(column).getByRole("button").click();
+}
+
 test("UI acceptance", async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -340,15 +351,53 @@ test("UI acceptance", async ({ page, request }) => {
   await expect(page.getByText(/conflicting versions/)).toBeVisible();
   await capture(page, "03-home-conflict-banner");
   await page.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByRole("heading", { name: "Conflicts", exact: true })).toBeVisible();
   await capture(page, "10-conflict");
-  await page.locator(".panel", { hasText: "Renamed On Phone" }).getByRole("button", { name: "Keep this version" }).click();
+  await chooseVersion(page, "Renamed On Phone");
+  await expect(page.getByRole("heading", { name: "No conflicts" })).toBeVisible();
+  await capture(page, "10-conflicts-none");
   await page.getByRole("button", { name: "Back" }).click();
   const kept = await page.getByRole("button", { name: /Renamed On Phone/ }).count();
   behaviours.push({
-    control: "Keep this version",
+    control: "Conflict centre → Keep this version",
     claimed: "chosen version becomes the item; conflict resolved",
     observed: `chosen visible: ${kept === 1}, banner: ${await page.getByText(/conflicting versions/).count()}`,
     ok: kept === 1 && (await page.getByText(/conflicting versions/).count()) === 0,
+  });
+
+  // sync-v1 §3.1: a re-joined phone uploads its unchanged copy as a new root. Not a conflict.
+  const latestRows = (await (await request.get(`/api/v1/vaults/${VAULT_ID}/revisions?after=0`, { headers: auth })).json()).revisions;
+  const latestGraph = new RevisionGraph(VAULT_ID);
+  latestGraph.add(
+    await Promise.all(latestRows.map((r: { body: string; revisionID: string }) => openRevision(base64.decode(r.body), r.revisionID, VAULT_ID, key))),
+  );
+  const keptHead = latestGraph.heads(target.revision.itemID)[0];
+  const keptSnap = keptHead?.snapshot;
+  if (!keptSnap) throw new Error("missing kept head");
+  const reupload = await sealRevision(
+    {
+      version: 1,
+      vaultID: VAULT_ID,
+      revisionID: randomUUID(),
+      itemID: target.revision.itemID,
+      installationID: randomUUID(),
+      counter: latestGraph.maximumCounter + 1,
+      parents: [],
+      snapshot: await encodePayload(keptSnap.items, keptSnap.artworks),
+    },
+    key,
+  );
+  await request.put(`/api/v1/vaults/${VAULT_ID}/revisions/${reupload.revision.revisionID}`, {
+    headers: { ...auth, "Content-Type": "application/octet-stream" },
+    data: Buffer.from(reupload.ciphertext),
+  });
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.waitForTimeout(500);
+  behaviours.push({
+    control: "Identical re-upload from a re-joined phone",
+    claimed: "shown as one item, not as a conflict (sync-v1 §3.1)",
+    observed: `banner: ${await page.getByText(/conflicting versions/).count()}, items named “Renamed On Phone”: ${await page.getByRole("button", { name: /Renamed On Phone/ }).count()}`,
+    ok: (await page.getByText(/conflicting versions/).count()) === 0 && (await page.getByRole("button", { name: /Renamed On Phone/ }).count()) === 1,
   });
 
   // Language switch

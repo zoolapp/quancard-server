@@ -163,4 +163,75 @@ describe("VaultStore", () => {
     expect(entry?.conflict).toBe(true);
     expect(entry?.versions.map((v) => v.item?.displayName).sort()).toEqual(["Edited on phone", "TEST_ONLY"]);
   });
+
+  describe("sync-v1 §3.1 identical heads", () => {
+    async function twoDevices() {
+      const browser = await VaultStore.open(view(), { vaultID, key: new Uint8Array(keyBytes) });
+      const phone = await VaultStore.open(view(), { vaultID, key: new Uint8Array(keyBytes) });
+      return { browser, phone };
+    }
+
+    it("folds an unchanged re-upload (new root, same content) and merges it on the next save", async () => {
+      const { browser, phone } = await twoDevices();
+      const original = item();
+      await browser.save(original, original.id, null);
+      // A re-joined phone uploads its unchanged copy as a new root revision.
+      await phone.save({ ...original, updatedAt: "2026-10-02T00:00:00.000Z" }, original.id, null, false, []);
+      await browser.refresh();
+      const entry = browser.items()[0];
+      expect(entry?.versions).toHaveLength(2);
+      expect(entry?.conflict).toBe(false);
+      await browser.save({ ...original, notes: "after fold" }, original.id, null);
+      const graph = await reload();
+      const heads = graph.items().find((s) => s.itemID === original.id.toUpperCase())?.heads ?? [];
+      expect(heads).toHaveLength(1);
+      expect(heads[0]?.revision.parents).toHaveLength(2);
+    });
+
+    it.each([
+      ["notes", { notes: "my salary card" }],
+      ["createdAt", { createdAt: "2026-09-01T00:00:00.000Z" }],
+      ["tag order", { tags: ["b", "a"] }],
+      ["null vs empty", { institutionName: "" }],
+    ])("keeps a real conflict when %s differs", async (_name, patch) => {
+      const { browser, phone } = await twoDevices();
+      const original = { ...item(), tags: ["a", "b"] };
+      await browser.save(original, original.id, null);
+      await phone.save({ ...original, ...patch } as typeof original, original.id, null, false, []);
+      await browser.refresh();
+      expect(browser.items()[0]?.conflict).toBe(true);
+    });
+
+    it("keeps A = B ≠ C and tombstone-next-to-live as conflicts", async () => {
+      const { browser, phone } = await twoDevices();
+      const a = item();
+      await browser.save(a, a.id, null);
+      await phone.save(a, a.id, null, false, []);
+      await phone.save({ ...a, displayName: "Different" }, a.id, null, false, []);
+      await browser.refresh();
+      expect(browser.items()[0]?.conflict).toBe(true);
+
+      const b = item();
+      await browser.save(b, b.id, null);
+      await phone.save(null, b.id, null, false, []);
+      await browser.refresh();
+      expect(browser.items().find((e) => e.itemID === b.id.toUpperCase())?.conflict).toBe(true);
+    });
+
+    it("never absorbs a head that arrived after the edit started", async () => {
+      const { browser, phone } = await twoDevices();
+      const original = item();
+      await browser.save(original, original.id, null);
+      await phone.save(original, original.id, null, false, []);
+      await browser.refresh();
+      // The editor opens on the folded item…
+      const base = browser.items()[0]?.versions.map((v) => ({ revisionID: v.node.revision.revisionID, digest: v.node.digest }));
+      // …then a different head arrives before it saves.
+      await phone.refresh();
+      await phone.save({ ...original, displayName: "Changed on phone" }, original.id, null, false, []);
+      await browser.refresh();
+      await expect(browser.save({ ...original, notes: "draft" }, original.id, null, false, base)).rejects.toThrow();
+      expect(browser.items()[0]?.conflict).toBe(true);
+    });
+  });
 });

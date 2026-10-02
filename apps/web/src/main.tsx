@@ -5,6 +5,7 @@ import { locale, setLocale, t } from "./i18n.js";
 import { resetRoute, route } from "./router.js";
 import { boot, installLifecycleGuards, phase, setupEnabled, vault } from "./session.js";
 import { NoVaultView, RegisterView, SignInView, UnlockView } from "./views/auth.js";
+import { ConflictsView } from "./views/conflicts.js";
 import { EditorView } from "./views/editor.js";
 import { HomeView } from "./views/home.js";
 import { ItemView } from "./views/item.js";
@@ -57,7 +58,11 @@ function App() {
         <EditorView itemID={current.itemID} kind={current.kind} />
       </Sheet>
     ) : undefined;
-  return <AppShell overlay={overlay}>{current.name === "settings" ? <SettingsView version={__APP_VERSION__} /> : <HomeView />}</AppShell>;
+  return (
+    <AppShell overlay={overlay}>
+      {current.name === "settings" ? <SettingsView version={__APP_VERSION__} /> : current.name === "conflicts" ? <ConflictsView /> : <HomeView />}
+    </AppShell>
+  );
 }
 
 render(<App />, document.getElementById("app") as HTMLElement);

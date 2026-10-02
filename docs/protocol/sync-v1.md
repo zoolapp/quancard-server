@@ -39,6 +39,36 @@ every head, or keeps all versions as separate items. Revisions with missing pare
 until the chain is complete. A per-installation counter must exceed every parent’s counter and never
 repeat.
 
+### 3.1 Identical heads are folded in the view (client rule, 2026-10)
+
+When **all** heads of an item carry the same content, clients show one item instead of a
+conflict. This is a view fold: no revision is written, so two clients applying the rule never
+write against each other, but the history keeps its branches. The next ordinary save of that item
+takes as parents the heads the edit started from (all of them, since they were shown as one).
+A head that arrives later is never absorbed. The wire format is unchanged.
+
+Heads `H1…Hn` (n ≥ 2) are **identical** when none is a tombstone and, for every pair:
+
+- every item field except `updatedAt` is equal: `createdAt`, tags and their order, notes,
+  favourite, sort position, lifecycle, every card or account field including `cvc`, currencies
+  and their order, and routing identifiers including their `id`. A missing value, `null` and `""`
+  are different. Strings are compared exactly, with no trimming or case or Unicode folding;
+- the photos are equal by SHA-256 of the decoded JPEG bytes, or every head has no photo. A photo
+  that cannot be read or decoded makes the heads non-identical;
+- the payload decoded with the strict codec (unknown keys are rejected, so nothing is dropped
+  silently).
+
+The typical cause is a device that re-joins a vault and uploads its unchanged items again as new
+root revisions. Anything else stays a conflict for the user: a tombstone next to a live head, any
+differing field, or A = B ≠ C. Sample data loaded on two devices, possibly in different languages,
+also stays a conflict. The web conflict centre offers an explicit bulk action for it, after
+showing the differences.
+
+To display one head, a client picks the one with the latest `updatedAt` (parsed as an instant),
+with ties broken by the lexicographically smallest lowercase revision UUID. Shared test cases
+cover web (`apps/web/test/vault.test.ts`) and iOS (`SyncConflictEquivalenceTests`). Review:
+[2026-10-03 second opinion](../reviews/2026-10-03-equivalent-heads-second-opinion.md).
+
 ## 4. Server endpoints
 
 | Method | Path | Auth | Notes |

@@ -39,6 +39,42 @@ export interface ProjectedItem {
   conflict: boolean;
 }
 
+/** Structural JSON with sorted keys, so field order never matters but values (null vs "") do. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v) =>
+    v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v,
+  );
+}
+
+/**
+ * sync-v1 §3.1: heads that all carry the same item (every field but
+ * `updatedAt`, and the same verified photo digest) are folded into one item
+ * in the view. Nothing is written. A tombstone or any differing field keeps
+ * the conflict.
+ */
+export function identicalHeads(versions: ItemVersion[]): boolean {
+  if (versions.length < 2 || versions.some((v) => v.item === null)) return false;
+  const key = (v: ItemVersion) => {
+    const { updatedAt: _ignored, ...rest } = v.item as VaultItem;
+    // The codec verified each photo against its SHA-256 when it decoded the payload.
+    return canonical({ item: rest, photo: v.artwork ? v.artwork.sha256 : null });
+  };
+  const first = key(versions[0] as ItemVersion);
+  return versions.every((v) => key(v) === first);
+}
+
+/** The head to display for folded heads: latest `updatedAt`, then the smallest revision ID. */
+function representative(versions: ItemVersion[]): ItemVersion {
+  return [...versions].sort((a, b) => {
+    const ta = Date.parse(a.item?.updatedAt ?? "") || 0;
+    const tb = Date.parse(b.item?.updatedAt ?? "") || 0;
+    if (ta !== tb) return tb - ta;
+    const ia = a.node.revision.revisionID.toLowerCase();
+    const ib = b.node.revision.revisionID.toLowerCase();
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  })[0] as ItemVersion;
+}
+
 /** Thrown when work finishes after the vault was locked; its results are discarded. */
 export class VaultClosedError extends Error {}
 
@@ -154,13 +190,21 @@ export class VaultStore {
         artwork: node.snapshot?.artworks[0] ?? null,
       }));
       const live = versions.filter((v) => v.item !== null);
-      const conflict = versions.length > 1;
-      const first = live[0];
+      const folded = identicalHeads(versions);
+      const conflict = versions.length > 1 && !folded;
+      const first = folded ? representative(versions) : live[0];
       // A single tombstone head means the item was deleted.
       if (!first) continue;
       out.push({ itemID: state.itemID, item: first.item as VaultItem, artwork: first.artwork, versions, conflict });
     }
     return out;
+  }
+
+  /** True when the item's heads are identical (sync-v1 §3.1), so a save may take them all as parents. */
+  private isFolded(itemID: string): boolean {
+    const state = this.graph.items().find((s) => s.itemID === itemID);
+    if (!state || state.heads.length < 2) return false;
+    return identicalHeads(state.heads.map((node) => ({ node, item: node.snapshot?.items[0] ?? null, artwork: node.snapshot?.artworks[0] ?? null })));
   }
 
   get pendingItems(): number {
@@ -186,7 +230,7 @@ export class VaultStore {
     const upper = itemID.toUpperCase();
     // Always ask the graph: it refuses to write on top of an unresolved conflict or missing
     // parents, even when `base` is given (the result is then used only for that check).
-    const current = this.graph.parentsFor(upper, resolving);
+    const current = this.graph.parentsFor(upper, resolving || this.isFolded(upper));
     const parents = base ?? current;
     // Reserve the counter before the first await.
     const counter = Math.max(this.graph.maximumCounter, this.lastCounter) + 1;
