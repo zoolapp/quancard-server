@@ -26,8 +26,8 @@ sign-in page. People without an account need an invite (see §4).
 Choose one:
 
 - **Create a new vault.** Recommended. It starts with one sample card, like a fresh iPhone
-  install. *New here? Load sample data* adds 15 cards and 6 accounts with public test numbers, so
-  you can look around. Settings → Sample data removes them again, on every device.
+  install. *New here? Load sample data* fills in the rest of the sample catalogue: 15 cards in total,
+  including the welcome card, and 6 accounts with public test numbers. Settings → Sample data removes them again, on every device.
 - **Import with a recovery code** (`QC1.…`). Use this to continue a vault you already have, for
   example one you exported earlier. No sample card is added.
 

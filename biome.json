@@ -1,6 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
-  "files": { "includes": ["**", "!**/dist", "!**/node_modules", "!vectors/*.json", "!**/coverage", "!**/test-results", "!**/playwright-report"] },
+  "files": {
+    "includes": ["**", "!**/dist", "!**/node_modules", "!vectors/*.json", "!**/coverage", "!**/test-results", "!**/playwright-report", "!.ui-acceptance"]
+  },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 160 },
   "linter": {
     "rules": {

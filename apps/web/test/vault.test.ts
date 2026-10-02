@@ -218,6 +218,23 @@ describe("VaultStore", () => {
       expect(browser.items().find((e) => e.itemID === b.id.toUpperCase())?.conflict).toBe(true);
     });
 
+    it("keep-all copies only the versions shown and never closes a head that arrived meanwhile", async () => {
+      const { browser, phone } = await twoDevices();
+      const original = item();
+      await browser.save(original, original.id, null);
+      await phone.refresh();
+      await phone.save({ ...original, displayName: "Phone A" }, original.id, null, false, []);
+      await browser.refresh();
+      const entry = browser.items().find((e) => e.itemID === original.id.toUpperCase());
+      expect(entry?.conflict).toBe(true);
+      // A third version arrives after the user looked at the conflict.
+      await phone.save({ ...original, displayName: "Phone B" }, original.id, null, true, []);
+      await browser.refresh();
+      await browser.keepAll(entry as NonNullable<typeof entry>);
+      const after = browser.items().find((e) => e.itemID === original.id.toUpperCase());
+      expect(after?.versions.some((v) => v.item?.displayName === "Phone B")).toBe(true);
+    });
+
     it("never absorbs a head that arrived after the edit started", async () => {
       const { browser, phone } = await twoDevices();
       const original = item();

@@ -256,7 +256,9 @@ export class VaultStore {
       const copy: VaultItem = { ...version.item, id, artworkBlobID: artwork?.id ?? null };
       await this.save(copy, id, artwork);
     }
-    await this.save(null, project.itemID, null, true);
+    // Close only the versions that were copied; a head that arrived meanwhile stays a conflict.
+    const shown = project.versions.map((v) => ({ revisionID: v.node.revision.revisionID, digest: v.node.digest }));
+    await this.save(null, project.itemID, null, true, shown);
   }
 
   private requireKey(): CryptoKey {

@@ -124,7 +124,7 @@ const en = {
   conflictsBulk: "Handle all",
   conflictsUseLatest: "Use the most recently edited version",
   conflictsLatestLead:
-    "For each of these {n} items, the version with the latest edit time becomes the item. The other versions stay in the history but are no longer shown. Device clocks can be wrong, so check the list first.",
+    "For each of these {n} items, the version with the latest edit time becomes the item. The other versions stay in the history but are no longer shown. A deleted version counts as the oldest. Device clocks can be wrong, so check the list first.",
   conflictsSamples: "Sample data: keep one copy ({n})",
   conflictsSamplesTitle: "Keep one copy of each sample",
   conflictsSamplesLead:
@@ -486,7 +486,8 @@ const zh: Partial<Record<MessageKey, string>> = {
   conflictsLead: "{n} 个条目在不同设备上有不同版本。先比较差异，再逐条选择或一次性处理。系统不会自动替你选择。",
   conflictsBulk: "批量处理",
   conflictsUseLatest: "全部采用最近修改的版本",
-  conflictsLatestLead: "这 {n} 个条目将各自采用修改时间最新的版本，其他版本保留在历史里、不再显示。设备时钟可能不准，请先核对下面的清单。",
+  conflictsLatestLead:
+    "这 {n} 个条目将各自采用修改时间最新的版本，其他版本保留在历史里、不再显示。已删除的版本视为最旧。设备时钟可能不准，请先核对下面的清单。",
   conflictsSamples: "示例数据：每条保留一份（{n}）",
   conflictsSamplesTitle: "示例数据每条保留一份",
   conflictsSamplesLead: "有 {n} 条示例数据在两台设备上各载入过一次（可能语言不同）。每条保留一份，优先保留当前语言的版本。",
