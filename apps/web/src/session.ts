@@ -17,7 +17,7 @@ import { VaultStore } from "./vault.js";
 
 /**
  * Key lifecycle. Key material lives only in memory (non-extractable CryptoKeys
- * where WebCrypto allows) and is dropped on lock: after 5 minutes idle, after
+ * where WebCrypto allows) and is dropped on lock: after the chosen idle time (5 minutes by default), after
  * 60 seconds in the background, on sign-out and on page unload. Nothing secret
  * is written to localStorage, sessionStorage, IndexedDB or cookies.
  */
@@ -49,7 +49,28 @@ export const revealGrace = { until: 0 };
 /** SHA-256 of the authKey from the last successful unlock, for local re-verification only. */
 let authCheck: Uint8Array | null = null;
 
-const IDLE_MS = 5 * 60 * 1000;
+/** Idle auto-lock, in minutes. A preference, not a secret, so it may persist in localStorage. */
+export const AUTO_LOCK_CHOICES = [1, 5, 15, 30] as const;
+function loadAutoLock(): number {
+  try {
+    const stored = Number(localStorage.getItem("quancard.autoLockMinutes"));
+    return (AUTO_LOCK_CHOICES as readonly number[]).includes(stored) ? stored : 5;
+  } catch {
+    return 5;
+  }
+}
+export const autoLockMinutes = signal(loadAutoLock());
+
+export function setAutoLock(minutes: number): void {
+  if (!(AUTO_LOCK_CHOICES as readonly number[]).includes(minutes)) return;
+  autoLockMinutes.value = minutes;
+  try {
+    localStorage.setItem("quancard.autoLockMinutes", String(minutes));
+  } catch {
+    /* private mode: the choice lasts for this tab */
+  }
+  armIdleTimer();
+}
 const BACKGROUND_MS = 60 * 1000;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let backgroundTimer: ReturnType<typeof setTimeout> | undefined;
@@ -228,7 +249,7 @@ export async function syncNow(): Promise<void> {
 
 function armIdleTimer(): void {
   clearTimeout(idleTimer);
-  if (phase.value === "ready") idleTimer = setTimeout(lock, IDLE_MS);
+  if (phase.value === "ready") idleTimer = setTimeout(lock, autoLockMinutes.value * 60 * 1000);
 }
 
 export function installLifecycleGuards(): void {

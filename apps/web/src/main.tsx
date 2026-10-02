@@ -19,7 +19,13 @@ function inviteFromFragment(): string | null {
 }
 
 function App() {
-  const [invite] = useState(inviteFromFragment);
+  const [invite, setInvite] = useState(inviteFromFragment);
+  useEffect(() => {
+    // An invite link pasted into an already open tab only changes the fragment.
+    const onHash = () => setInvite(inviteFromFragment());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
   useEffect(() => {
     setLocale(locale.value);
     installLifecycleGuards();
@@ -38,24 +44,20 @@ function App() {
 
   const current = route.value;
   // Detail and editor open as a sheet over the collection; Settings replaces it.
-  return (
-    <AppShell>
-      {current.name === "settings" ? <SettingsView version={__APP_VERSION__} /> : <HomeView />}
-      {current.name === "item" && (
-        <Sheet label={t("details")} key={current.itemID}>
-          <ItemView itemID={current.itemID} />
-        </Sheet>
-      )}
-      {current.name === "edit" && (
-        <Sheet
-          label={current.itemID ? t("edit") : current.kind === "paymentCard" ? t("addCard") : t("addAccount")}
-          key={`edit-${current.itemID ?? current.kind}`}
-        >
-          <EditorView itemID={current.itemID} kind={current.kind} />
-        </Sheet>
-      )}
-    </AppShell>
-  );
+  const overlay =
+    current.name === "item" ? (
+      <Sheet label={t("details")} key={current.itemID}>
+        <ItemView itemID={current.itemID} />
+      </Sheet>
+    ) : current.name === "edit" ? (
+      <Sheet
+        label={current.itemID ? t("edit") : current.kind === "paymentCard" ? t("addCard") : t("addAccount")}
+        key={`edit-${current.itemID ?? current.kind}`}
+      >
+        <EditorView itemID={current.itemID} kind={current.kind} />
+      </Sheet>
+    ) : undefined;
+  return <AppShell overlay={overlay}>{current.name === "settings" ? <SettingsView version={__APP_VERSION__} /> : <HomeView />}</AppShell>;
 }
 
 render(<App />, document.getElementById("app") as HTMLElement);

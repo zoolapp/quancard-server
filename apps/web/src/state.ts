@@ -7,7 +7,6 @@ export type Section = "paymentCard" | "bankAccount" | "favorites";
 export const section = signal<Section>("paymentCard");
 export const region = signal<string | null>(null);
 export const paletteOpen = signal(false);
-export const addMenuOpen = signal(false);
 
 export function selectSection(next: Section): void {
   section.value = next;

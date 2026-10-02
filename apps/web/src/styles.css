@@ -273,6 +273,14 @@ kbd {
   opacity: 0.86;
 }
 
+/* Disabled primary stays legible in both themes (no washed-out ink-on-grey). */
+.btn.primary:disabled {
+  opacity: 1;
+  background: var(--field);
+  border-color: var(--hairline-strong);
+  color: var(--ink-2);
+}
+
 .btn.ghost {
   border-color: transparent;
   background: transparent;
@@ -1486,6 +1494,14 @@ textarea.input {
   padding: 12px 40px;
 }
 
+select.input.compact-select {
+  width: auto;
+  min-height: 34px;
+  padding: 4px 12px;
+  font-size: 13.5px;
+  border-radius: 999px;
+}
+
 .setting-block {
   padding: 16px 0;
 }
@@ -2047,10 +2063,16 @@ dialog.palette {
   }
 }
 
+/* Sheets move but never fade: a half-transparent sheet would show the list through it. */
 @keyframes slide-in {
   from {
-    transform: translateX(24px);
-    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes sheet-rise {
+  from {
+    transform: translateY(24px);
   }
 }
 
@@ -2199,7 +2221,7 @@ dialog.palette {
   .sheet {
     width: 100vw;
     border-left: 0;
-    animation-name: rise;
+    animation-name: sheet-rise;
   }
 }
 

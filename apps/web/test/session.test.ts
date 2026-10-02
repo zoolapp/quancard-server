@@ -68,3 +68,25 @@ describe("background lock", () => {
     expect(session.phase.value).toBe("unlock");
   });
 });
+
+describe("idle auto-lock", () => {
+  it("honours the chosen duration and remembers it", async () => {
+    const stored: Record<string, string> = {};
+    vi.stubGlobal("localStorage", { getItem: (k: string) => stored[k] ?? null, setItem: (k: string, v: string) => void (stored[k] = v) });
+    const session = await readySession();
+    session.setAutoLock(1);
+    expect(stored["quancard.autoLockMinutes"]).toBe("1");
+    vi.advanceTimersByTime(59_000);
+    expect(session.phase.value).toBe("ready");
+    vi.advanceTimersByTime(2_000);
+    expect(session.phase.value).toBe("unlock");
+  });
+
+  it("ignores values outside the offered choices and defaults to 5 minutes", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => "999", setItem: () => undefined });
+    const session = await import("../src/session.js");
+    expect(session.autoLockMinutes.value).toBe(5);
+    session.setAutoLock(2);
+    expect(session.autoLockMinutes.value).toBe(5);
+  });
+});

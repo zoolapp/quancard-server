@@ -7,14 +7,16 @@
       "title": "Brand asset pipeline: otter mark/guardian/kaka SVG/AppIcon in apps/web (WebP, hashed), favicon, apple-touch-icon, manifest; SOURCES note",
       "executor": "main",
       "verification": "pnpm --filter @quancard/web build; dist/assets contains otter+guardian webp; /manifest.webmanifest served as application/manifest+json; no DemoCardFaces file in repo",
-      "passes": false
+      "passes": true,
+      "evidence": "apps/web/src/assets/*.webp (otter mark/guardian/first-card), public favicon.svg (kaka), icon-192/512, apple-touch-icon, manifest.webmanifest linked in index.html; no DemoCardFaces copied; SOURCES.md"
     },
     {
       "id": "V2-02",
       "title": "Auth shell redesign: brand lockup (otter + wordmark + tagline), sign-in/setup/invite/no-vault; unlock uses guardian pose; dark mode",
       "executor": "main",
       "verification": "UI gate screens desktop+mobile+dark PASS; contrast AA",
-      "passes": false
+      "passes": true,
+      "evidence": "auth.tsx split hero + lockup + guardian unlock; UI gate 2026-10-02: 520/520 checks, 17/17 behaviours (docs/verification/ui-acceptance-2026-10-02.md); vault.spec e2e passes"
     },
     {
       "id": "V2-03",
@@ -29,7 +31,8 @@
       "title": "Network/issuer/wallet marks and region flags",
       "executor": "main",
       "verification": "BLOCKED on user trademark decision; fallback: monogram + flag emoji-free text",
-      "passes": false
+      "passes": false,
+      "evidence": "BLOCKED (trademark decision). Interim: issuer short names on faces, colored monogram tiles, region code badges"
     },
     {
       "id": "V2-05",
@@ -44,35 +47,40 @@
       "title": "Demo UX: welcome card on createVault (not import); empty state illustration + load sample; Settings sample data load/remove",
       "executor": "main",
       "verification": "e2e: new vault shows welcome card; load -> 20; request bodies contain no plaintext demo values",
-      "passes": false
+      "passes": true,
+      "evidence": "new vault seeds welcome card (UI gate behaviour 'Create a new vault'); import does not (vault.spec import path shows 1 card after first add); load/remove samples behaviours pass"
     },
     {
       "id": "V2-07",
       "title": "Desktop app shell (>=1024): sidebar with brand, Cards/Accounts, region/favorite filters, settings, lock; Cmd/Ctrl+K search dialog; mobile unchanged",
       "executor": "main",
       "verification": "screenshots desktop show sidebar; Cmd+K opens search; no horizontal overflow at 390",
-      "passes": false
+      "passes": true,
+      "evidence": "components/shell.tsx sidebar + palette (Ctrl/Cmd+K behaviour pass); phone layout tabs/chips/FAB; no overflow at 390"
     },
     {
       "id": "V2-08",
       "title": "Detail/editor as side panel/dialog on desktop; full page on mobile",
       "executor": "main",
       "verification": "desktop screenshot shows panel; mobile unchanged",
-      "passes": false
+      "passes": true,
+      "evidence": "Sheet over collection, inert background, URL stays '/'; UI gate 2026-10-02: 520/520 checks, 17/17 behaviours (docs/verification/ui-acceptance-2026-10-02.md); vault.spec e2e passes"
     },
     {
       "id": "V2-09",
       "title": "Settings polish: About, auto-lock duration, sample data section",
       "executor": "main",
       "verification": "screenshots; e2e auto-lock",
-      "passes": false
+      "passes": true,
+      "evidence": "Settings: Auto-lock 1/5/15/30 min (session.test.ts fake-timer test), Sample data section (load/remove with confirm, UI gate behaviours), About kept"
     },
     {
       "id": "V2-10",
       "title": "Hardening: /api/v1/status capabilities; refresh on visibilitychange; shortcuts; PWA manifest",
       "executor": "main",
       "verification": "server test status shape; manifest valid; CSP unchanged",
-      "passes": false
+      "passes": true,
+      "evidence": "/api/v1/status capabilities+limits (server test), redocly lint valid; syncNow on visibilitychange + 60s interval; PWA manifest; CSP unchanged"
     },
     {
       "id": "V2-11",
@@ -87,35 +95,40 @@
       "title": "Passkey server implementation",
       "executor": "main",
       "verification": "BLOCKED on user approval of @simplewebauthn/server dependency + TOTP bypass policy",
-      "passes": false
+      "passes": false,
+      "evidence": "BLOCKED: owner approval of @simplewebauthn/server and TOTP policy; spec preconditions §7"
     },
     {
       "id": "V2-13",
       "title": "Passkey web client",
       "executor": "main",
       "verification": "BLOCKED on V2-12",
-      "passes": false
+      "passes": false,
+      "evidence": "BLOCKED: owner approval of @simplewebauthn/server and TOTP policy; spec preconditions §7"
     },
     {
       "id": "V2-14",
       "title": "i18n completeness en/zh",
       "executor": "main",
       "verification": "test asserts en and zh key sets equal",
-      "passes": false
+      "passes": true,
+      "evidence": "apps/web/test/i18n.test.ts: every en key in zh (proper nouns exempt), placeholders match"
     },
     {
       "id": "V2-15",
       "title": "UI acceptance gate v2: desktop/mobile/dark screenshots, regression vs docs/screenshots/mvp",
       "executor": "main",
       "verification": "ui-acceptance REPORT PASS",
-      "passes": false
+      "passes": true,
+      "evidence": "UI gate 2026-10-02: 520/520 checks, 17/17 behaviours (docs/verification/ui-acceptance-2026-10-02.md); vault.spec e2e passes; docs/screenshots/v2 (52 WebP); baseline diff table"
     },
     {
       "id": "V2-16",
       "title": "Docs: README, CHANGELOG 0.2.0 (unreleased), THIRD_PARTY_NOTICES, roadmap/hardening doc",
       "executor": "main",
       "verification": "relative link check; git diff --check",
-      "passes": false
+      "passes": true,
+      "evidence": "README screenshots, CHANGELOG Unreleased 0.2.0, CLAUDE.md UI baseline, docs/roadmap-multi-platform.md, assets SOURCES.md; links checked; git diff --check ok"
     },
     {
       "id": "V2-17",

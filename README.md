@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/mvp/desktop-light-home.png" alt="QuanCard web vault — cards grouped by region" width="720" />
+  <img src="docs/screenshots/v2/14-home-samples-desktop.webp" alt="QuanCard web vault — cards grouped by region" width="720" />
 </p>
 
 <h1 align="center">QuanCard Server</h1>
@@ -94,10 +94,10 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 | Light | Dark |
 | --- | --- |
-| ![Card detail, masked](docs/screenshots/mvp/desktop-light-detail.png) | ![Conflict resolution](docs/screenshots/mvp/desktop-dark-conflict.png) |
-| ![Editor on phone](docs/screenshots/mvp/mobile-light-edit.png) | ![Pairing on phone](docs/screenshots/mvp/mobile-dark-pairing.png) |
+| ![Card detail, masked](docs/screenshots/v2/05-detail-masked-desktop.webp) | ![Command palette, dark](docs/screenshots/v2/15-palette-dark.webp) |
+| ![Collection on phone](docs/screenshots/v2/14-home-samples-mobile.webp) | ![Lock screen on phone, dark](docs/screenshots/v2/11-unlock-mobile-dark.webp) |
 
-All screenshots use synthetic test data.
+All screenshots use synthetic test data or the built-in sample data (public test numbers).
 
 ## Project status
 

@@ -5,7 +5,7 @@ import { compare, markStyle, matches, monogram, regionsOf } from "../collection.
 import { formatShort, regionName, t } from "../i18n.js";
 import { goBack, navigate, route } from "../router.js";
 import { account, lock, revision, syncNow, vault } from "../session.js";
-import { addMenuOpen, paletteOpen, region, type Section, section, selectSection, toast } from "../state.js";
+import { paletteOpen, region, type Section, section, selectSection, toast } from "../state.js";
 import type { ProjectedItem } from "../vault.js";
 import { CardFace, Icon } from "./ui.js";
 
@@ -29,28 +29,29 @@ function useItems(): ProjectedItem[] {
 }
 
 export function AddMenu({ placement }: { placement: "sidebar" | "header" | "fab" }) {
-  const open = addMenuOpen.value;
+  // Per instance: the header menu and the phone FAB must not share one open state.
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = (event: Event) => {
-      if (!ref.current?.contains(event.target as Node)) addMenuOpen.value = false;
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
     };
     const esc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") addMenuOpen.value = false;
+      if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", esc);
     return () => (document.removeEventListener("pointerdown", close), document.removeEventListener("keydown", esc));
   }, [open]);
   const go = (kind: "paymentCard" | "bankAccount") => {
-    addMenuOpen.value = false;
+    setOpen(false);
     navigate({ name: "edit", itemID: null, kind });
   };
   return (
     <div class={`add-menu add-menu-${placement}`} ref={ref}>
       {placement === "fab" ? (
-        <button type="button" class="fab" aria-label={t("add")} aria-expanded={open} aria-haspopup="menu" onClick={() => (addMenuOpen.value = !open)}>
+        <button type="button" class="fab" aria-label={t("add")} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>
           <Icon name={open ? "close" : "plus"} />
         </button>
       ) : (
@@ -59,7 +60,7 @@ export function AddMenu({ placement }: { placement: "sidebar" | "header" | "fab"
           class={`btn primary${placement === "sidebar" ? " block" : ""}`}
           aria-expanded={open}
           aria-haspopup="menu"
-          onClick={() => (addMenuOpen.value = !open)}
+          onClick={() => setOpen(!open)}
         >
           <Icon name="plus" /> {t("newItem")}
         </button>
@@ -88,7 +89,7 @@ function NavItem({ icon, label, count, active, onClick }: { icon: string; label:
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ inert }: { inert?: boolean }) {
   const all = useItems();
   const store = vault.value;
   const onHome = route.value.name !== "settings";
@@ -111,7 +112,7 @@ export function Sidebar() {
     setRefreshing(false);
   };
   return (
-    <aside class="sidebar" aria-label={t("appName")}>
+    <aside class="sidebar" aria-label={t("appName")} inert={inert}>
       <div class="sidebar-brand">
         <OtterMark size={40} />
         <div class="sidebar-brand-text">
@@ -184,12 +185,21 @@ export function Sidebar() {
 
 /** Phone header: brand, search, settings, lock. Navigation lives in the tabs below. */
 export function MobileHeader({ title }: { title?: string }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    await syncNow();
+    setRefreshing(false);
+  };
   return (
     <header class="topbar mobile-only">
       <OtterMark size={34} />
       <h1 class="title">{title ?? "QuanCard"}</h1>
       <button type="button" class="icon-btn" aria-label={t("search")} onClick={() => (paletteOpen.value = true)}>
         <Icon name="search" />
+      </button>
+      <button type="button" class="icon-btn" aria-label={t("refresh")} onClick={() => void refresh()} disabled={refreshing}>
+        {refreshing ? <span class="spinner" aria-hidden="true" /> : <Icon name="refresh" />}
       </button>
       <button type="button" class="icon-btn" aria-label={t("settings")} onClick={() => navigate({ name: "settings" })}>
         <Icon name="settings" />
@@ -363,7 +373,7 @@ export function Sheet({ label, children }: { label: string; children: ComponentC
   }, []);
   return (
     <div class="sheet-layer">
-      <button type="button" class="sheet-scrim" aria-label={t("back")} tabIndex={-1} onClick={goBack} />
+      <div class="sheet-scrim" aria-hidden="true" onClick={goBack} />
       <div class="sheet" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} ref={ref}>
         {children}
       </div>
@@ -389,12 +399,17 @@ export function useShortcuts(): void {
   }, []);
 }
 
-export function AppShell({ children }: { children: ComponentChildren }) {
+/** `overlay` (a Sheet) renders above the frame; everything behind it becomes inert. */
+export function AppShell({ children, overlay }: { children: ComponentChildren; overlay?: ComponentChildren }) {
   useShortcuts();
+  const covered = !!overlay;
   return (
     <div class="app">
-      <Sidebar />
-      <div class="app-main">{children}</div>
+      <Sidebar inert={covered} />
+      <div class="app-main" inert={covered}>
+        {children}
+      </div>
+      {overlay}
       <CommandPalette />
       <Toast />
     </div>

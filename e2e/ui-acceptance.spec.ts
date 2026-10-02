@@ -157,16 +157,16 @@ test("UI acceptance", async ({ page, request }) => {
   await page.getByRole("button", { name: "Import with a recovery code" }).click();
   await page.getByLabel("Recovery code").fill(recoveryCode({ vaultID: VAULT_ID, key: SYNC_KEY }));
   await page.getByRole("button", { name: "Import" }).click();
-  await expect(page.getByRole("tab", { name: /Cards/ })).toBeVisible();
+  await expect(page.locator(".sidebar").getByRole("button", { name: /Cards/ })).toBeVisible();
 
   for (const [name, bank, region, pan] of [
     ["Synthetic Everyday Visa", "TEST_ONLY Bank", "SG", "0000000000001111"],
     ["Synthetic Travel Platinum Card With A Long Name", "TEST_ONLY International Bank Corporation", "JP", "0000000000002222"],
     ["Synthetic Debit", "TEST_ONLY Credit Union", "US", "0000000000003333"],
   ]) {
-    await page.getByRole("button", { name: "Add", exact: true }).click();
-    await page.getByRole("button", { name: "Add card" }).click();
-    await page.getByLabel("Name").fill(name as string);
+    await page.getByRole("button", { name: "New", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Add card" }).click();
+    await page.getByLabel("Name", { exact: true }).fill(name as string);
     await page.getByLabel("Bank or issuer").fill(bank as string);
     await page.getByLabel("Country or region").fill(region as string);
     await page.getByLabel("Card number").fill(pan as string);
@@ -178,38 +178,49 @@ test("UI acceptance", async ({ page, request }) => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: new RegExp(name as string) })).toBeVisible();
   }
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Add account" }).click();
-  await page.getByLabel("Name").fill("Synthetic Savings");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add account" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Savings");
   await page.getByLabel("Bank or issuer").fill("TEST_ONLY Savings Bank");
   await page.getByLabel("Country or region").fill("DE");
   await page.getByLabel("Account number").fill("TEST_ONLY_0001");
   await page.getByLabel("Currencies").fill("EUR, USD");
   await page.getByRole("button", { name: "Save" }).click();
   await capture(page, "03-home-cards");
-  await page.getByRole("tab", { name: /Accounts/ }).click();
+  const nav = page.locator(".sidebar");
+  await nav.getByRole("button", { name: /Accounts/ }).click();
   await capture(page, "03-home-accounts");
-  await page.getByRole("tab", { name: /Cards/ }).click();
+  await nav.getByRole("button", { name: /Cards/ }).click();
 
-  // Search opens in place (no page navigation).
+  // Search is a dialog (⌘K / Ctrl+K or the sidebar field); no page navigation.
   const urlBefore = page.url();
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.keyboard.press("Control+k");
   await page.getByRole("searchbox", { name: "Search" }).fill("debit");
-  const visible = await page.locator(".card-tile").count();
+  const matched = await page.locator(".palette-row .palette-thumb").count();
   behaviours.push({
-    control: "Search",
-    claimed: "filters in place, no navigation",
-    observed: `${visible} card(s), url ${page.url() === urlBefore ? "unchanged" : "changed"}`,
-    ok: visible === 1 && page.url() === urlBefore,
+    control: "Search (Ctrl+K)",
+    claimed: "opens a search dialog, filters items, no navigation",
+    observed: `${matched} item(s), url ${page.url() === urlBefore ? "unchanged" : "changed"}`,
+    ok: matched === 1 && page.url() === urlBefore,
   });
   await capture(page, "03-home-search");
-  await page.getByRole("button", { name: "Close search" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("dialog[open]"))
+    .toHaveCount(0, { timeout: 2000 })
+    .catch(() => undefined);
+  behaviours.push({
+    control: "Search → Esc",
+    claimed: "closes the dialog",
+    observed: `open dialogs: ${await page.locator("dialog[open]").count()}`,
+    ok: (await page.locator("dialog[open]").count()) === 0,
+  });
 
-  // Region chip
-  await page.getByRole("button", { name: "Japan" }).click();
+  // Region filter in the sidebar
+  await nav.getByRole("button", { name: /Japan/ }).click();
   const jp = await page.locator(".card-tile").count();
-  behaviours.push({ control: "Region chip “Japan”", claimed: "show only Japanese items", observed: `${jp} card(s)`, ok: jp === 1 });
-  await page.getByRole("button", { name: "All", exact: true }).click();
+  behaviours.push({ control: "Sidebar region “Japan”", claimed: "show only Japanese items", observed: `${jp} card(s)`, ok: jp === 1 });
+  await capture(page, "03-home-region");
+  await nav.getByRole("button", { name: /Japan/ }).click();
 
   // Detail: masked, reveal requires password, hide hides.
   await page.getByRole("button", { name: /Synthetic Everyday Visa/ }).click();
@@ -222,10 +233,10 @@ test("UI acceptance", async ({ page, request }) => {
   });
   await capture(page, "05-detail-masked");
   await page.getByRole("button", { name: "Show" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator("dialog[open]")).toBeVisible();
   await capture(page, "06-reveal-dialog");
-  await page.getByRole("dialog").getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByText("0000 0000 0000 1111")).toBeVisible();
   behaviours.push({
     control: "Show",
@@ -250,7 +261,7 @@ test("UI acceptance", async ({ page, request }) => {
   await page.getByRole("button", { name: /Synthetic Debit/ }).click();
   await page.getByRole("button", { name: "Delete" }).click();
   await capture(page, "07-delete-confirm");
-  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await page.locator("dialog[open]").getByRole("button", { name: "Cancel" }).click();
   behaviours.push({
     control: "Delete → Cancel",
     claimed: "nothing deleted",
@@ -258,7 +269,7 @@ test("UI acceptance", async ({ page, request }) => {
     ok: (await page.getByRole("heading", { name: "Synthetic Debit" }).count()) === 1,
   });
   await page.getByRole("button", { name: "Delete" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await page.locator("dialog[open]").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("button", { name: /Synthetic Debit/ })).toHaveCount(0);
   behaviours.push({ control: "Delete → Delete", claimed: "removed from every device (tombstone)", observed: "item gone from list", ok: true });
 
@@ -266,8 +277,8 @@ test("UI acceptance", async ({ page, request }) => {
   await page.getByRole("button", { name: "Settings" }).click();
   const pairingResponse = page.waitForResponse((r) => r.url().includes("/pairings") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Pair iPhone" }).click();
-  await page.getByRole("dialog").getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   const pairing = await (await pairingResponse).json();
   await expect(page.getByRole("img", { name: "Pair iPhone" })).toBeVisible();
   await capture(page, "08-pairing");
@@ -304,9 +315,9 @@ test("UI acceptance", async ({ page, request }) => {
     headers: { ...auth, "Content-Type": "application/octet-stream" },
     data: Buffer.from(forked.ciphertext),
   });
-  await page.getByRole("button", { name: "Back" }).click();
+  await nav.getByRole("button", { name: /Cards/ }).click();
   await page.getByRole("button", { name: /Synthetic Everyday Visa/ }).click();
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Notes").fill("TEST_ONLY browser edit");
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Back" }).click();
@@ -332,11 +343,11 @@ test("UI acceptance", async ({ page, request }) => {
   behaviours.push({ control: "Language → 简体中文", claimed: "UI switches to Chinese", observed: "heading “设置”", ok: true });
   await capture(page, "09-settings-zh");
   await page.getByRole("button", { name: "English" }).click();
-  await page.getByRole("button", { name: "Back" }).click();
+  await nav.getByRole("button", { name: /Cards/ }).click();
 
   // Lock and sign-in screens
   await page.getByRole("button", { name: "Lock" }).click();
-  await expect(page.getByRole("heading", { name: "Locked" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   const stillCached = await page.getByText("Synthetic").count();
   behaviours.push({
     control: "Lock",
@@ -359,6 +370,67 @@ test("UI acceptance", async ({ page, request }) => {
     ok: (await page.getByRole("alert").textContent()) === "Username or password is incorrect.",
   });
   await capture(page, "12-sign-in-error");
+
+  // A brand-new vault (invited member): welcome card, sample data, palette, removal.
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Create invite link" }).click();
+  const invite = ((await page.locator(".mono-wrap", { hasText: "#invite=" }).textContent()) ?? "").trim();
+  await page.getByRole("button", { name: "Sign out" }).first().click();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await page.goto(invite);
+  await expect(page.getByRole("heading", { name: "Join this server" })).toBeVisible();
+  await page.getByLabel("Username").fill("member");
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByLabel("Confirm password").fill(PASSWORD);
+  await page.getByLabel("I understand").check();
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: /Create a new vault/ }).click();
+  await expect(page.locator(".card-tile")).toHaveCount(1);
+  behaviours.push({
+    control: "Create a new vault",
+    claimed: "starts with the QuanCard welcome card (as on iPhone)",
+    observed: (await page.locator(".card-tile").first().getAttribute("aria-label")) ?? "",
+    ok: /QuanCard · Sample/.test((await page.locator(".card-tile").first().getAttribute("aria-label")) ?? ""),
+  });
+  await capture(page, "13-home-welcome");
+  await page.locator(".banner").getByRole("button", { name: "Load sample data" }).click();
+  await expect(page.getByText("Added 20 sample items.")).toBeVisible();
+  const cards = await page.locator(".card-tile").count();
+  behaviours.push({
+    control: "Load sample data",
+    claimed: "adds the iOS sample catalogue (15 cards, 6 accounts)",
+    observed: `${cards} cards`,
+    ok: cards === 15,
+  });
+  await capture(page, "14-home-samples");
+  await page.keyboard.press("Control+k");
+  await page.getByRole("searchbox", { name: "Search" }).fill("hsbc");
+  await capture(page, "15-palette");
+  await page.keyboard.press("Escape");
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: /Accounts/ })
+    .click();
+  const accounts = await page.locator(".list-row").count();
+  behaviours.push({ control: "Sidebar “Accounts”", claimed: "lists the 6 sample accounts", observed: `${accounts} rows`, ok: accounts === 6 });
+  await capture(page, "16-home-accounts-samples");
+  await page.locator(".list-row").first().click();
+  await capture(page, "16-account-detail");
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Remove sample data" }).click();
+  await capture(page, "17-remove-samples-confirm");
+  await page
+    .locator("dialog[open]")
+    .getByRole("button", { name: /Remove sample data/ })
+    .click();
+  await expect(page.getByText("Removed 21 sample items.")).toBeVisible();
+  await page.locator(".sidebar").getByRole("button", { name: /Cards/ }).click();
+  const left = await page.locator(".card-tile").count();
+  behaviours.push({ control: "Remove sample data", claimed: "deletes every item tagged Demo/示例/範例", observed: `${left} cards left`, ok: left === 0 });
+  await capture(page, "17-home-empty");
 
   writeFileSync(`${DIR}/results.json`, `${JSON.stringify({ findings, behaviours }, null, 2)}\n`);
   const failed = findings.filter((f) => !f.ok);

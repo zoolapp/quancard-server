@@ -201,7 +201,7 @@ export function HomeView() {
           ))}
         </div>
         {regions.length > 1 && (
-          <div class="chips" role="toolbar" aria-label={t("region")}>
+          <div class="chips" role="toolbar" aria-label={t("regions")}>
             <button type="button" class="chip" aria-pressed={!selectedRegion} onClick={() => (region.value = null)}>
               {t("allRegions")}
             </button>

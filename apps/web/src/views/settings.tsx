@@ -8,7 +8,7 @@ import { isSample } from "../demo.js";
 import { formatBytes, formatTime, locale, type MessageKey, setLocale, t } from "../i18n.js";
 import { argon2id } from "../kdf.js";
 import { goBack } from "../router.js";
-import { account, confirmPassword, revision, signOut, unlock, vault } from "../session.js";
+import { AUTO_LOCK_CHOICES, account, autoLockMinutes, confirmPassword, revision, setAutoLock, signOut, unlock, vault } from "../session.js";
 import { showToast } from "../state.js";
 
 type Secrets = Awaited<ReturnType<typeof confirmPassword>>;
@@ -541,6 +541,25 @@ export function SettingsView({ version }: { version: string }) {
       </Section>
 
       <Section title={t("security")}>
+        <Line
+          label={t("autoLock")}
+          action={
+            <select
+              class="input compact-select"
+              aria-label={t("autoLock")}
+              value={autoLockMinutes.value}
+              onChange={(e) => setAutoLock(Number(e.currentTarget.value))}
+            >
+              {AUTO_LOCK_CHOICES.map((n) => (
+                <option key={n} value={n}>
+                  {t("autoLockAfter", { n })}
+                </option>
+              ))}
+            </select>
+          }
+        >
+          <span class="muted">{t("autoLockHelp")}</span>
+        </Line>
         <Line label={t("password")} action={<ChangePassword onDone={setMessage} />}>
           {account.value ? formatTime(account.value.passwordChangedAt) : ""}
         </Line>

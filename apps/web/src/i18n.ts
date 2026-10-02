@@ -205,6 +205,9 @@ const en = {
   members: "Members",
   activity: "Activity",
   language: "Language",
+  autoLock: "Auto-lock",
+  autoLockAfter: "After {n} min idle",
+  autoLockHelp: "Keys are also dropped 60 seconds after this tab goes to the background.",
   dangerZone: "Danger zone",
   changePassword: "Change password",
   currentPassword: "Current password",
@@ -526,6 +529,9 @@ const zh: Partial<Record<MessageKey, string>> = {
   members: "成员",
   activity: "活动记录",
   language: "语言",
+  autoLock: "自动锁定",
+  autoLockAfter: "闲置 {n} 分钟后",
+  autoLockHelp: "标签页转到后台 60 秒后也会清除密钥。",
   dangerZone: "危险操作",
   changePassword: "修改密码",
   currentPassword: "当前密码",
@@ -648,6 +654,9 @@ function initialLocale(): Locale {
   }
   return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
 }
+
+/** Exposed for the completeness test only. */
+export const MESSAGES = { en, zh };
 
 export const locale = signal<Locale>(initialLocale());
 

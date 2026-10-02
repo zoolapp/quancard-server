@@ -104,13 +104,13 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await expect(page.getByRole("alert")).toContainText("QC1");
   await page.getByLabel("Recovery code").fill(QC1);
   await page.getByRole("button", { name: "Import" }).click();
-  await expect(page.getByRole("tab", { name: /Cards/ })).toBeVisible();
+  await expect(page.locator(".sidebar").getByRole("button", { name: /Cards/ })).toBeVisible();
   await shoot(page, "home-empty");
 
   // --- Add a card with CVC and a photo -----------------------------------------------
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Add card" }).click();
-  await page.getByLabel("Name").fill("Synthetic Travel Card");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add card" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Travel Card");
   await page.getByLabel("Bank or issuer").fill("TEST_ONLY Bank");
   await page.getByLabel("Country or region").fill("sg");
   await page.getByLabel("Card number").fill("0000 0000 0000 1234");
@@ -126,9 +126,9 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await expect(page.getByRole("button", { name: /Synthetic Travel Card/ })).toBeVisible();
 
   // --- Add a bank account ---------------------------------------------------------
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Add account" }).click();
-  await page.getByLabel("Name").fill("Synthetic Savings");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add account" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Savings");
   await page.getByLabel("Bank or issuer").fill("TEST_ONLY Savings Bank");
   await page.getByLabel("Country or region").fill("DE");
   await page.getByLabel("Account number").fill("TEST_ONLY_0001");
@@ -136,14 +136,17 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await page.getByRole("button", { name: "Add routing detail" }).click();
   await page.getByLabel("Value").fill(IBAN);
   await page.getByRole("button", { name: "Save" }).click();
-  await page.getByRole("tab", { name: /Accounts/ }).click();
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: /Accounts/ })
+    .click();
   await expect(page.getByText("Synthetic Savings")).toBeVisible();
-  await page.getByRole("tab", { name: /Cards/ }).click();
+  await page.locator(".sidebar").getByRole("button", { name: /Cards/ }).click();
 
   // A second card so the grid shows more than one face.
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await page.getByRole("button", { name: "Add card" }).click();
-  await page.getByLabel("Name").fill("Synthetic Debit");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add card" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Debit");
   await page.getByLabel("Bank or issuer").fill("TEST_ONLY Credit Union");
   await page.getByLabel("Country or region").fill("US");
   await page.getByLabel("Network").selectOption("mastercard");
@@ -161,11 +164,11 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await expect(page.getByText("TEST_ONLY lounge access note")).toBeVisible();
   await shoot(page, "detail");
   await page.getByRole("button", { name: "Show" }).click();
-  await page.getByRole("dialog").getByLabel("Password").fill("wrong password value");
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("Password is incorrect.");
-  await page.getByRole("dialog").getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await page.locator("dialog[open]").getByLabel("Password").fill("wrong password value");
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
+  await expect(page.locator("dialog[open]").getByRole("alert")).toHaveText("Password is incorrect.");
+  await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByText("0000 0000 0000 1234")).toBeVisible();
   await expect(page.getByText(CVC)).toBeVisible();
   await page.getByRole("button", { name: "Hide" }).click();
@@ -176,8 +179,8 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await page.getByRole("button", { name: "Hide" }).click();
 
   // --- Edit ---------------------------------------------------------------------------
-  await page.getByRole("button", { name: "Edit" }).click();
-  await page.getByLabel("Name").fill("Synthetic Travel Card Edited");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Synthetic Travel Card Edited");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Synthetic Travel Card Edited" })).toBeVisible();
   await page.getByRole("button", { name: "Back" }).click();
@@ -186,8 +189,8 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await page.getByRole("button", { name: "Settings" }).click();
   const pairingResponse = page.waitForResponse((r) => r.url().includes("/pairings") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Pair iPhone" }).click();
-  await page.getByRole("dialog").getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   const pairing = await (await pairingResponse).json();
   await expect(page.getByRole("img", { name: "Pair iPhone" })).toBeVisible();
   await shoot(page, "pairing");
@@ -241,9 +244,9 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   expect(put.status()).toBe(201);
 
   // The browser has not refreshed, so its edit forks from the same parent.
-  await page.getByRole("button", { name: "Back" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: /Cards/ }).click();
   await page.getByRole("button", { name: /Synthetic Travel Card Edited/ }).click();
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Notes").fill("TEST_ONLY edited in browser");
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Back" }).click();
@@ -270,9 +273,9 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   await page.getByRole("button", { name: /Synthetic Debit/ }).click();
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("heading", { name: "Delete this item?" })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await page.locator("dialog[open]").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("button", { name: /Synthetic Debit/ })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /Cards/ })).toContainText("1");
+  await expect(page.locator(".sidebar").getByRole("button", { name: /Cards/ })).toContainText("1");
   const afterDelete = await (await request.get(`/api/v1/vaults/${VAULT_ID}/revisions?after=0`, { headers: auth })).json();
   const deletedGraph = new RevisionGraph(VAULT_ID);
   const deletedNodes = [];
@@ -285,11 +288,11 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
 
   // --- Lock / unlock --------------------------------------------------------------------
   await page.getByRole("button", { name: "Lock" }).click();
-  await expect(page.getByRole("heading", { name: "Locked" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   await shoot(page, "unlock");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Unlock" }).click();
-  await expect(page.getByRole("tab", { name: /Cards/ })).toBeVisible();
+  await expect(page.locator(".sidebar").getByRole("button", { name: /Cards/ })).toBeVisible();
 
   // Nothing secret persisted in browser storage.
   const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
@@ -298,15 +301,15 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
   // --- Two-step verification ---------------------------------------------------------
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Turn on" }).click();
-  await page.getByRole("dialog").getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await page.locator("dialog[open]").getByLabel("Password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Confirm" }).click();
   const secretText = (await page.locator("dialog[open] .mono-wrap").textContent()) ?? "";
   const secret = base32(secretText.trim());
   await page
     .getByRole("dialog")
     .getByLabel("Authenticator code")
     .fill(hotp(secret, Math.floor(Date.now() / 30_000)));
-  await page.getByRole("dialog").getByRole("button", { name: "Turn on" }).click();
+  await page.locator("dialog[open]").getByRole("button", { name: "Turn on" }).click();
   await expect(page.getByRole("heading", { name: "Save your recovery codes" })).toBeVisible();
   await page.getByRole("button", { name: "I saved these codes" }).click();
   await expect(page.getByText("On — authenticator app")).toBeVisible();
@@ -314,10 +317,10 @@ test("owner setup, vault, cards, reveal, conflicts, pairing, 2FA and password ch
 
   // --- Password change, sign out, sign in with new password + TOTP ----------------------
   await page.getByRole("button", { name: "Change password" }).click();
-  await page.getByRole("dialog").getByLabel("Current password").fill(PASSWORD);
-  await page.getByRole("dialog").getByLabel("New password").fill(NEW_PASSWORD);
-  await page.getByRole("dialog").getByLabel("Confirm password").fill(NEW_PASSWORD);
-  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await page.locator("dialog[open]").getByLabel("Current password").fill(PASSWORD);
+  await page.locator("dialog[open]").getByLabel("New password").fill(NEW_PASSWORD);
+  await page.locator("dialog[open]").getByLabel("Confirm password").fill(NEW_PASSWORD);
+  await page.locator("dialog[open]").getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Password changed")).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).first().click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
