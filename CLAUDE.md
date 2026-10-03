@@ -15,6 +15,11 @@ UI_ACCEPTANCE=1 pnpm exec playwright test e2e/ui-acceptance.spec.ts # UI gate, s
 The server caches `index.html` at start-up: restart it after every web build. Run one Playwright
 process at a time: both specs use port 8788 and `test-results/`.
 
+## Status
+
+Cross-repo status and open work (iOS, server, website): `../quan-card/docs/status/2026-10-03-unified-audit.md`
+and its task list `2026-10-03-unified-tasks.json` (iOS repository, private).
+
 ## UI 基准
 
 - Current baseline: web v2 — `docs/screenshots/v2/` + `docs/verification/ui-acceptance-2026-10-02.md`.
