@@ -48,6 +48,11 @@ desktop browser. It stays out of your data:
 - **Yours to run.** One Docker Compose file with automatic HTTPS, your domain, your backups. Open
   source under AGPL-3.0.
 
+> [!NOTE]
+> **What is open source here.** This repository, the self-hosted sync server and the web vault, is
+> open source. The QuanCard iPhone app is a commercial product and is not open source. The
+> protocols it speaks are documented here, so you can audit how your data is encrypted and stored.
+
 ## Highlights
 
 <table>
