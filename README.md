@@ -39,12 +39,14 @@
 
 QuanCard on iPhone keeps your cards and bank accounts on the device and can sync through iCloud.
 QuanCard Server is the third option: **your own sync backend**, plus a full **web vault** for any
-desktop browser. It stays out of your data:
+desktop browser. Running as published, it only ever holds ciphertext:
 
 - **iPhone ⇄ server ⇄ web.** Pair your iPhone once with a QR code. Edits on either side appear on
   the other, encrypted end to end.
 - **Zero knowledge.** The browser and the iPhone encrypt everything before upload. The server
-  stores opaque, immutable revisions and never sees a card number, a key or your password.
+  stores opaque, immutable revisions and does not see a card number, a key or your password. It also
+  serves the web vault's code, so a compromised server could replace it; see the
+  [threat model](THREAT_MODEL.md).
 - **Yours to run.** One Docker Compose file with automatic HTTPS, your domain, your backups. Open
   source under AGPL-3.0.
 
@@ -69,7 +71,8 @@ Changes from your phone show up in the browser on their own: when the tab regain
 every 60 seconds while it is open.
 
 **🔗 One-scan pairing**<br />
-A single-use QR code hands the vault key to your iPhone. The browser confirms the moment the phone
+A QR code hands the vault key to your iPhone. The pairing code is single-use, but the key inside is
+long-term, so don't keep screenshots of it. The browser confirms the moment the phone
 connects and follows its first sync. Both screens play the same "linked" animation.
 
 **🔀 Conflicts you can trust**<br />
@@ -92,7 +95,7 @@ task switchers.
 
 **👨‍👩‍👧 Family-ready**<br />
 The owner invites members. Each member has a separate account and a separately encrypted vault;
-the owner cannot read it.
+the owner cannot read it through the server (as long as the server and web code are not tampered with).
 
 **🛡️ Hardened**<br />
 TOTP two-step verification with recovery codes, rate limits and lockout, an append-only audit log,
@@ -143,7 +146,7 @@ cannot make payments).
                    └▶ KEK ─wraps─▶ Account Key ───────────▶ wrapped Account Key
                                     └─wraps─▶ vault key ──▶ wrapped vault key
  card / account ─AES-256-GCM(vault key)─▶ revision ───────▶ opaque, immutable revisions
- iPhone ◀── one-time QR code (vault key, never sent to the server) ── browser
+ iPhone ◀── pairing QR code (long-term vault key, not sent through the server) ── browser
 ```
 
 - **One protocol, every client.** The web client speaks the iPhone's `quancard.envelope.v1` and
